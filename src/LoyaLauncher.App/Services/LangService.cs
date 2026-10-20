@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -5,8 +6,9 @@ using Avalonia.Controls;
 namespace LoyaLauncher.App.Services;
 
 /// <summary>
-/// 语言服务：从输出目录 Assets/Lang/{lang}.json 加载资源，
-/// 写入 Application 级 ResourceDictionary，XAML 用 {DynamicResource key} 访问。
+/// 语言服务：语言资源以 EmbeddedResource 内置于程序集（单文件 exe 的唯一来源），
+/// 同时支持用户在 exe 旁边的 Assets/Lang/{lang}.json 放置文件覆盖（自制语言包）。
+/// 资源写入 Application 级 ResourceDictionary，XAML 用 {DynamicResource key} 访问。
 /// 切换语言时替换字典，无需重启。
 /// </summary>
 public static class LangService
@@ -46,27 +48,53 @@ public static class LangService
         return fallback;
     }
 
+    /// <summary>exe 所在目录（单文件模式下 BaseDirectory 指向临时解压目录，不可信）</summary>
+    private static string AppDirectory =>
+        Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName)
+        ?? AppContext.BaseDirectory;
+
     private static ResourceDictionary? LoadDictionary(string language)
     {
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Lang", $"{language}.json");
-            if (!File.Exists(path)) return null;
-
-            using var stream = File.OpenRead(path);
-            using var doc = JsonDocument.Parse(stream);
-
             var dict = new ResourceDictionary { ["__LoyaLang__"] = true };
-            foreach (var prop in doc.RootElement.EnumerateObject())
+            var found = false;
+
+            // 1. 用户覆盖：exe 旁边的 Assets/Lang/{lang}.json（自制语言包优先）
+            var overridePath = Path.Combine(AppDirectory, "Assets", "Lang", $"{language}.json");
+            if (File.Exists(overridePath))
             {
-                if (prop.Value.ValueKind == JsonValueKind.String)
-                    dict[prop.Name] = prop.Value.GetString() ?? "";
+                using var fs = File.OpenRead(overridePath);
+                LoadInto(dict, fs);
+                found = true;
             }
-            return dict;
+            else
+            {
+                // 2. 内置资源（嵌入程序集，单文件 exe 的唯一来源）
+                var resName = $"LoyaLauncher.App.Assets.Lang.{language}.json";
+                using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resName);
+                if (stream is not null)
+                {
+                    LoadInto(dict, stream);
+                    found = true;
+                }
+            }
+
+            return found ? dict : null;
         }
         catch
         {
             return null;
+        }
+    }
+
+    private static void LoadInto(ResourceDictionary dict, Stream stream)
+    {
+        using var doc = JsonDocument.Parse(stream);
+        foreach (var prop in doc.RootElement.EnumerateObject())
+        {
+            if (prop.Value.ValueKind == JsonValueKind.String)
+                dict[prop.Name] = prop.Value.GetString() ?? "";
         }
     }
 }

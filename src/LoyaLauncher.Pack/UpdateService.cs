@@ -144,8 +144,11 @@ public sealed class UpdateService
                 return false;
             }
 
-            // 应用目录：入口程序集所在目录（发布后即安装目录）
-            var appDir = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location) ?? AppContext.BaseDirectory;
+            // 应用目录：优先取真实 exe 路径（单文件模式下 Assembly.Location 为空、
+            // AppContext.BaseDirectory 指向临时解压目录，均不可信）
+            var appDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName)
+                ?? Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location)
+                ?? AppContext.BaseDirectory;
 
             var copied = 0;
             foreach (var source in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))

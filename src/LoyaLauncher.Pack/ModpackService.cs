@@ -80,7 +80,7 @@ public sealed class ModpackService
             Loader = instance.Loader,
             LoaderVersion = instance.LoaderVersion,
             ModFiles = Directory.Exists(modsDir)
-                ? Directory.EnumerateFiles(modsDir).Select(Path.GetFileName).ToList()
+                ? Directory.EnumerateFiles(modsDir).Select(f => Path.GetFileName(f)!).ToList()
                 : [],
         };
 

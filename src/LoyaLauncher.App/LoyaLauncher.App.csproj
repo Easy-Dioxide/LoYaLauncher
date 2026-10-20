@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets/logo-256.png" />
+    <!-- 语言资源双重供给：嵌入程序集（单文件 exe 的唯一来源）+ 拷贝到输出目录（用户覆盖） -->
+    <EmbeddedResource Include="Assets/Lang/*.json" />
     <Content Include="Assets/Lang/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
