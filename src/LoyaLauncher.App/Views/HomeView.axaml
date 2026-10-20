@@ -1,0 +1,197 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             xmlns:core="using:LoyaLauncher.Core"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
+             x:Class="LoyaLauncher.App.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="28,22">
+        <StackPanel>
+
+            <!-- ============ 标题区 ============ -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,22">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Home.Welcome}" Classes="hTitle"/>
+                    <TextBlock Text="{DynamicResource Home.Subtitle}" Classes="hCaption" Margin="1,4,0,0"/>
+                </StackPanel>
+                <Border Grid.Column="1" Padding="12,8" CornerRadius="10"
+                        Background="#0DFFFFFF" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding CurrentAccountText}" Margin="8,0,0,0" FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ============ 当前实例英雄卡 ============ -->
+            <Border Classes="GlassCard" Margin="0,0,0,18" Padding="26">
+                <Grid>
+                    <Grid.Styles>
+                        <Style Selector="Grid">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                    </Grid.Styles>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Home.CurrentInstance}" Classes="hSection"/>
+                            <TextBlock Text="{Binding SelectedInstanceName}" FontSize="30" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Border Background="#1F7C5CFF" CornerRadius="6" Padding="9,4">
+                                    <TextBlock Text="{Binding CurrentVersionText}" FontSize="12"
+                                               Foreground="{StaticResource AccentBrush}"/>
+                                </Border>
+                                <Border Background="#14FFFFFF" CornerRadius="6" Padding="9,4" Margin="8,0,0,0">
+                                    <TextBlock Text="{DynamicResource Home.OfflineMode}" FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- 启动按钮 -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="20,0,0,0">
+                            <Button Classes="AccentButton"
+                                    Command="{Binding LaunchCommand}"
+                                    IsEnabled="{Binding !IsLaunching}"
+                                    Padding="40,16">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
+                                          Margin="0,0,10,0" Fill="White" Data="{StaticResource IconPlay}"/>
+                                    <TextBlock Text="{DynamicResource Home.Launch}" FontSize="15" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center"
+                                       Margin="0,10,0,0" FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap" MaxWidth="180" TextAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 启动进度条 -->
+                    <ProgressBar Classes="GlassProgress" VerticalAlignment="Bottom"
+                                 IsVisible="{Binding IsLaunching}"
+                                 Value="{Binding LaunchProgress}" Maximum="1"/>
+                </Grid>
+            </Border>
+
+            <!-- ============ 空状态引导 ============ -->
+            <Border Classes="GlassCard" Margin="0,0,0,18" Padding="30"
+                    IsVisible="{Binding IsEmpty}">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="🎮" FontSize="42" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{DynamicResource Home.EmptyTitle}" Classes="hTitle" FontSize="18"
+                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                    <TextBlock Text="{DynamicResource Home.EmptyHint}" Classes="hCaption"
+                               HorizontalAlignment="Center" Margin="0,6,0,16" TextWrapping="Wrap"
+                               TextAlignment="Center" MaxWidth="420"/>
+                    <Button Classes="AccentButton" HorizontalAlignment="Center"
+                            Command="{Binding $parent[UserControl].DataContext.CreateInstanceCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                                  Margin="0,0,8,0" Fill="White" Data="{StaticResource IconPlus}"/>
+                            <TextBlock Text="{DynamicResource Home.CreateFirst}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 快速操作 ============ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                <Button Classes="GhostButton" Command="{Binding $parent[UserControl].DataContext.CreateInstanceCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                              Margin="0,0,8,0" Fill="{Binding $parent[Button].Foreground}" Data="{StaticResource IconPlus}"/>
+                        <TextBlock Text="{DynamicResource Home.NewInstance}"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- ============ 实例网格 ============ -->
+            <TextBlock Text="{DynamicResource Home.MyInstances}" Classes="hSection" Margin="4,0,0,12"/>
+            <ItemsControl ItemsSource="{Binding Instances}" IsVisible="{Binding HasInstances}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="core:GameInstance">
+                        <Border Classes="GlassCard" Padding="18" Margin="0,0,14,14"
+                                Width="240" Cursor="Hand"
+                                PointerPressed="InstanceCard_OnPointerPressed"
+                                ToolTip.Tip="点击选中该实例">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="34" Height="34" CornerRadius="9"
+                                            Background="{StaticResource AccentGradientBrush}">
+                                        <Path Width="17" Height="17" Stretch="Uniform"
+                                              Fill="White" Data="{StaticResource IconCube}"/>
+                                    </Border>
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding VersionId}" FontSize="11"
+                                                   Foreground="{StaticResource TextMutedBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="{Binding LastPlayed, StringFormat='{}{0:yyyy-MM-dd HH:mm} 运行'}"
+                                           FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                           Margin="0,12,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- ============ 日志面板 ============ -->
+            <Border Classes="GlassCard" Padding="0" Margin="0,10,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ToggleButton Grid.Row="0" Background="Transparent" Padding="18,12"
+                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                  IsChecked="{Binding LogPanelExpanded}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                                  Margin="0,0,9,0" Fill="{Binding $parent[ToggleButton].Foreground}"
+                                  Data="{StaticResource IconFolder}"/>
+                            <TextBlock Text="{DynamicResource Home.GameLog}" FontSize="13"
+                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </ToggleButton>
+
+                    <Border Grid.Row="1" Height="150" Background="#0A000000"
+                            CornerRadius="0,0,16,16"
+                            IsVisible="{Binding LogPanelExpanded}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,10">
+                            <ItemsControl ItemsSource="{Binding Logs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas,Menlo,monospace"
+                                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

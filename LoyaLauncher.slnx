@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LoyaLauncher.App/LoyaLauncher.App.csproj" />
+    <Project Path="src/LoyaLauncher.Auth/LoyaLauncher.Auth.csproj" />
+    <Project Path="src/LoyaLauncher.Bedrock/LoyaLauncher.Bedrock.csproj" />
+    <Project Path="src/LoyaLauncher.Core/LoyaLauncher.Core.csproj" />
+    <Project Path="src/LoyaLauncher.Downloader/LoyaLauncher.Downloader.csproj" />
+    <Project Path="src/LoyaLauncher.Java/LoyaLauncher.Java.csproj" />
+    <Project Path="src/LoyaLauncher.Mods/LoyaLauncher.Mods.csproj" />
+    <Project Path="src/LoyaLauncher.Pack/LoyaLauncher.Pack.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LoyaLauncher.Tests/LoyaLauncher.Tests.csproj" />
+  </Folder>
+</Solution>

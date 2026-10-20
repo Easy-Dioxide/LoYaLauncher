@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
+             x:Class="LoyaLauncher.App.Views.AccountsView"
+             x:DataType="vm:AccountsViewModel">
+
+    <Grid Margin="28,22" ColumnDefinitions="*,320">
+
+        <!-- ============ 左：添加账户 ============ -->
+        <StackPanel Grid.Column="0" Margin="0,0,18,0">
+            <TextBlock Text="{DynamicResource Accounts.Title}" Classes="hTitle"/>
+            <TextBlock Text="{DynamicResource Accounts.Subtitle}" Classes="hCaption" Margin="1,4,0,18"/>
+
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Accounts.AddTitle}" Classes="hSection" Margin="0,0,0,12"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0" Classes="GlassInput"
+                                 PlaceholderText="{DynamicResource Accounts.NamePlaceholder}"
+                                 Text="{Binding NewPlayerName}"/>
+                        <Button Grid.Column="1" Classes="AccentButton" Margin="10,0,0,0"
+                                Padding="22,10" Content="{DynamicResource Accounts.Add}"
+                                Command="{Binding AddAccountCommand}"/>
+                    </Grid>
+                    <TextBlock Text="{DynamicResource Accounts.OfflineHint}" Classes="hCaption"
+                               Margin="2,10,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{Binding StatusText}" Classes="hCaption" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- ============ 右：账户列表 ============ -->
+        <StackPanel Grid.Column="1">
+            <TextBlock Text="{DynamicResource Accounts.List}" Classes="hSection" Margin="4,0,0,12"/>
+            <Border Classes="GlassCard" Padding="6">
+                <ListBox Background="Transparent" ItemsSource="{Binding Accounts}"
+                         SelectedItem="{Binding SelectedAccount}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,10">
+                                <Border Width="36" Height="36" CornerRadius="18"
+                                        Background="{StaticResource AccentGradientBrush}">
+                                    <TextBlock Text="👤" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PlayerName}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding PlayerUuid}" FontSize="9"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                                </StackPanel>
+                                <Button Grid.Column="2" Classes="GhostButton" Padding="12,6"
+                                        FontSize="11" Content="使用"
+                                        Command="{Binding $parent[UserControl].DataContext.UseAccountCommand}"
+                                        CommandParameter="{Binding}"/>
+                                <Button Grid.Column="3" Classes="GhostButton" Padding="12,6"
+                                        FontSize="11" Content="删除" Margin="6,0,0,0"
+                                        Command="{Binding $parent[UserControl].DataContext.RemoveAccountCommand}"
+                                        CommandParameter="{Binding}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <Border Classes="GlassCard" Padding="16" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="正版登录（微软账号）" Classes="hSection"/>
+                    <TextBlock Text="二期功能：将支持 Microsoft OAuth2 设备码登录，与离线账户共存。"
+                               Classes="hCaption" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <Border Background="#1FFBBF24" Opacity="0.25" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
+                        <TextBlock Text="开发中" FontSize="11" Foreground="{StaticResource WarningBrush}"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

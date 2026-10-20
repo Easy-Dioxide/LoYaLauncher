@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoyaLauncher.Core\LoyaLauncher.Core.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Downloader\LoyaLauncher.Downloader.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Java\LoyaLauncher.Java.csproj" />
+  </ItemGroup>
+
+</Project>

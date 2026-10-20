@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:LoyaLauncher.App.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="720"
+        x:Class="LoyaLauncher.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="LoyaLauncher"
+        Icon="avares://LoyaLauncher.App/Assets/logo-256.png"
+        Width="1100" Height="720" MinWidth="940" MinHeight="620"
+        Background="{StaticResource AppBackgroundBrush}"
+        WindowDecorations="None"
+        TransparencyLevelHint="None"
+        CornerRadius="0">
+
+    <Grid Background="{StaticResource AppBackgroundBrush}">
+
+        <!-- ============ 背景装饰柔光 ============ -->
+        <Ellipse Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
+                 Margin="0,-280,-260,0" Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
+        <Ellipse Width="560" Height="560" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Margin="-200,0,0,-240" Opacity="0.55"
+                 Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
+
+        <Grid RowDefinitions="42,*">
+
+            <!-- ============ 自定义标题栏 ============ -->
+            <Border Grid.Row="0" Background="#06FFFFFF"
+                    PointerPressed="TitleBar_OnPointerPressed"
+                    DoubleTapped="TitleBar_OnDoubleTapped">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
+                        <Ellipse Width="11" Height="11" Fill="{StaticResource AccentGradientBrush}"/>
+                        <TextBlock Text="LoyaLauncher" Margin="10,0,0,0" FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="v0.1.0" Margin="8,0,0,0" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="1" Text="{Binding StatusText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               TextTrimming="CharacterEllipsis"/>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Name="MinimizeButton" Content="—" Width="46" Height="42"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                FontSize="13" Cursor="Hand" Click="OnMinimizeWindow"/>
+                        <Button Name="MaximizeButton" Content="▢" Width="46" Height="42"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                FontSize="12" Cursor="Hand" Click="OnToggleMaximize"/>
+                        <Button Name="CloseButton" Content="✕" Width="46" Height="42"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                FontSize="12" Cursor="Hand" Click="OnCloseWindow"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+
+                <!-- ============ 侧边导航 ============ -->
+                <Border Grid.Column="0" Width="{StaticResource NavWidth}"
+                        Background="#0AFFFFFF"
+                        BorderBrush="#12FFFFFF" BorderThickness="0,0,1,0">
+                    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+                        <!-- Logo / 品牌区 -->
+                        <StackPanel Grid.Row="0" Margin="22,26,20,18">
+                            <TextBlock Text="LOYA" Classes="hTitle" FontSize="26" LetterSpacing="3"/>
+                            <TextBlock Text="Minecraft 第三方启动器" Classes="hCaption" Margin="1,3,0,0"/>
+                        </StackPanel>
+
+                        <!-- 导航项 -->
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding NavItems}" Margin="12,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NavItem">
+                                    <ToggleButton Classes="NavButton"
+                                                  IsChecked="{Binding IsSelected}"
+                                                  Command="{Binding $parent[Window].DataContext.NavigateToCommand}"
+                                                  CommandParameter="{Binding Page}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="18" Height="18" Stretch="Uniform"
+                                                  VerticalAlignment="Center" Margin="2,0,11,0"
+                                                  Fill="{Binding $parent[ToggleButton].Foreground}"
+                                                  Data="{Binding IconGeometry}"/>
+                                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                                            <!-- 角标 -->
+                                            <Border Background="{StaticResource AccentBrush}"
+                                                    CornerRadius="8" Padding="6,1" Margin="10,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding HasBadge}">
+                                                <TextBlock Text="{Binding Badge}" FontSize="10"
+                                                           Foreground="White"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </ToggleButton>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 底部账户胶囊 -->
+                        <Border Grid.Row="2" Margin="14,10" Padding="12,10"
+                                Background="#0DFFFFFF" CornerRadius="12"
+                                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Width="32" Height="32" CornerRadius="16"
+                                        Background="{StaticResource AccentGradientBrush}">
+                                    <TextBlock Text="👤" FontSize="15"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding $parent[Window].DataContext.CurrentAccountName}"
+                                               FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="离线模式" FontSize="10"
+                                               Foreground="{StaticResource SuccessBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 底部下载中心快捷入口 -->
+                        <Button Grid.Row="3" Classes="GhostButton" Margin="14,0,14,14"
+                                HorizontalAlignment="Stretch"
+                                Command="{Binding NavigateToCommand}"
+                                CommandParameter="Downloads">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
+                                      Margin="0,0,9,0" Fill="{Binding $parent[Button].Foreground}"
+                                      Data="{StaticResource IconDownload}"/>
+                                <TextBlock Text="下载中心"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- ============ 内容区（页面过渡动画） ============ -->
+                <TransitioningContentControl Grid.Column="1"
+                                             Content="{Binding CurrentPage}"
+                                             PageTransition="{StaticResource LoyaPageTransition}"
+                                             HorizontalContentAlignment="Stretch"
+                                             VerticalContentAlignment="Stretch"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

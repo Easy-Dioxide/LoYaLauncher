@@ -1,24 +1,29 @@
-# Compiled class file
-*.class
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
 
-# Log file
+## Rider / VS Code
+.idea/
+*.sln.iml
+.vscode/
+
+## 构建产物
+publish/
 *.log
 
-# BlueJ files
-*.ctxt
+## 系统
+.DS_Store
+Thumbs.db
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+## 本地覆盖配置（可能含敏感信息）
+*.local.json

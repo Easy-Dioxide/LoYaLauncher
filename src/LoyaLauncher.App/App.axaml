@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="LoyaLauncher.App.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Styles>
+        <FluentTheme />
+        <!-- LoyaLauncher 玻璃拟态设计系统 -->
+        <StyleInclude Source="avares://LoyaLauncher.App/Styles/Glass.axaml"/>
+        <StyleInclude Source="avares://LoyaLauncher.App/Styles/Animations.axaml"/>
+    </Application.Styles>
+
+    <!-- 全局语言资源：由 App.axaml.cs 在启动时注入 -->
+    <Application.Resources>
+    </Application.Resources>
+
+</Application>

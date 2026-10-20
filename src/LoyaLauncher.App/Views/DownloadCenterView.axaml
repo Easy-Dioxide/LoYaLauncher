@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
+             x:Class="LoyaLauncher.App.Views.DownloadCenterView"
+             x:DataType="vm:DownloadCenterViewModel">
+
+    <Grid Margin="28,22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,18">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Downloads.Title}" Classes="hTitle"/>
+                <TextBlock Text="{DynamicResource Downloads.Subtitle}" Classes="hCaption" Margin="1,4,0,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Padding="12,8" CornerRadius="10" VerticalAlignment="Center"
+                    Background="#0DFFFFFF" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                <TextBlock Text="{Binding TotalSpeedText}" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Classes="GlassCard" Padding="6">
+            <ListBox Background="Transparent" ItemsSource="{Binding Tasks}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DownloadTaskItem">
+                        <Grid Margin="14,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="34" Height="34" CornerRadius="9" Background="#14FFFFFF">
+                                <Path Width="15" Height="15" Stretch="Uniform"
+                                      Fill="{StaticResource TextSecondaryBrush}"
+                                      Data="{StaticResource IconDownload}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0">
+                                <TextBlock Text="{Binding Group}" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding StatusText}" FontSize="10"
+                                           Foreground="{StaticResource TextMutedBrush}"/>
+                                <ProgressBar Classes="GlassProgress" Margin="0,6,0,0"
+                                             Value="{Binding Percent}" Maximum="100"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center"
+                                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- 空状态 -->
+        <TextBlock Grid.Row="1" Text="{DynamicResource Downloads.Empty}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextMutedBrush}"
+                   IsVisible="{Binding !HasActiveTasks}"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/logo.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/logo-256.png" />
+    <!-- 语言资源双重供给：嵌入程序集（单文件 exe 的唯一来源）+ 拷贝到输出目录（用户覆盖） -->
+    <EmbeddedResource Include="Assets/Lang/*.json" />
+    <Content Include="Assets/Lang/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoyaLauncher.Auth\LoyaLauncher.Auth.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Bedrock\LoyaLauncher.Bedrock.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Core\LoyaLauncher.Core.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Downloader\LoyaLauncher.Downloader.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Java\LoyaLauncher.Java.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Mods\LoyaLauncher.Mods.csproj" />
+    <ProjectReference Include="..\LoyaLauncher.Pack\LoyaLauncher.Pack.csproj" />
+  </ItemGroup>
+
+</Project>

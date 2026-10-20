@@ -1,0 +1,285 @@
+<!--
+  LoyaLauncher 玻璃拟态（Glassmorphism）设计系统
+  设计语言：深空底色 + 半透明磨砂卡片 + 渐变强调色 + 大圆角 + 柔光阴影
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System">
+
+    <Styles.Resources>
+
+        <!-- ==================== 调色板 ==================== -->
+        <Color x:Key="BgDeepColor">#0B0B12</Color>
+        <Color x:Key="BgMidColor">#12121E</Color>
+        <Color x:Key="BgHighColor">#1A1B2E</Color>
+        <Color x:Key="CardBgColor">#14FFFFFF</Color>
+        <Color x:Key="CardBgHoverColor">#1FFFFFFF</Color>
+        <Color x:Key="CardBorderColor">#1AFFFFFF</Color>
+        <Color x:Key="AccentColor1">#7C5CFF</Color>
+        <Color x:Key="AccentColor2">#4CC9F0</Color>
+        <Color x:Key="TextPrimaryColor">#F2F3F8</Color>
+        <Color x:Key="TextSecondaryColor">#A8AAC0</Color>
+        <Color x:Key="TextMutedColor">#6B6E85</Color>
+        <Color x:Key="SuccessColor">#4ADE80</Color>
+        <Color x:Key="WarningColor">#FBBF24</Color>
+        <Color x:Key="ErrorColor">#F87171</Color>
+
+        <!-- ==================== 画刷 ==================== -->
+        <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0%,0%" EndPoint="85%,100%">
+            <GradientStop Offset="0" Color="{StaticResource BgMidColor}"/>
+            <GradientStop Offset="0.55" Color="{StaticResource BgDeepColor}"/>
+            <GradientStop Offset="1" Color="{StaticResource BgHighColor}"/>
+        </LinearGradientBrush>
+
+        <SolidColorBrush x:Key="CardBrush" Color="{StaticResource CardBgColor}"/>
+        <SolidColorBrush x:Key="CardHoverBrush" Color="{StaticResource CardBgHoverColor}"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorderColor}"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor1}"/>
+        <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="{StaticResource AccentColor1}"/>
+            <GradientStop Offset="1" Color="{StaticResource AccentColor2}"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
+        <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}"/>
+        <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}"/>
+
+        <!-- 装饰柔光（窗口背景光斑，透明度写进 Color 的 Alpha 通道） -->
+        <RadialGradientBrush x:Key="GlowBrush" Center="50%,50%" GradientOrigin="50%,50%" RadiusX="60%" RadiusY="60%">
+            <GradientStop Offset="0" Color="#8C3A2E7A"/>
+            <GradientStop Offset="0.6" Color="#2E2A2060"/>
+            <GradientStop Offset="1" Color="#0012121E"/>
+        </RadialGradientBrush>
+
+        <!-- ==================== 尺寸与字体 ==================== -->
+        <sys:Double x:Key="CardCornerRadius">16</sys:Double>
+        <sys:Double x:Key="ControlCornerRadius">10</sys:Double>
+        <sys:Double x:Key="NavWidth">232</sys:Double>
+        <sys:Double x:Key="FontSizeTitle">22</sys:Double>
+        <sys:Double x:Key="FontSizeSection">13</sys:Double>
+        <sys:Double x:Key="FontSizeBody">13</sys:Double>
+        <sys:Double x:Key="FontSizeCaption">11</sys:Double>
+
+        <!-- ==================== 矢量图标（24x24） ==================== -->
+        <StreamGeometry x:Key="IconHome">M12 2.8 L21.5 10.3 V20.5 H14.5 V13.5 H9.5 V20.5 H2.5 V10.3 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconCube">M12 2.2 L21 7.2 V16.8 L12 21.8 L3 16.8 V7.2 Z M3.6 7.6 L12 12.1 L20.4 7.6 M12 12.1 V21.4</StreamGeometry>
+        <StreamGeometry x:Key="IconGrid">M4 3.5 H10 V9.5 H4 Z M14 3.5 H20 V9.5 H14 Z M4 14.5 H10 V20.5 H4 Z M14 14.5 H20 V20.5 H14 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconUser">M12 6.5 A4.2 4.2 0 1 0 12 14.9 A4.2 4.2 0 1 0 12 6.5 Z M3.8 21 C3.8 16.2 7.6 13.6 12 13.6 C16.4 13.6 20.2 16.2 20.2 21 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconGear">M12 7.6 A4.4 4.4 0 1 0 12 16.4 A4.4 4.4 0 1 0 12 7.6 Z M12 1.8 V4.6 M12 19.4 V22.2 M1.8 12 H4.6 M19.4 12 H22.2 M5.1 5.1 L7 7 M17 17 L18.9 18.9 M18.9 5.1 L17 7 M7 17 L5.1 18.9</StreamGeometry>
+        <StreamGeometry x:Key="IconDownload">M12 2.6 V14.2 M7 9.4 L12 14.4 L17 9.4 M3.8 19.4 H20.2</StreamGeometry>
+        <StreamGeometry x:Key="IconPlay">M7 3.8 L20.5 12 L7 20.2 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconFolder">M3.5 5.5 H9.5 L11.5 8 H20.5 V19.5 H3.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconPlus">M12 4.5 V19.5 M4.5 12 H19.5</StreamGeometry>
+        <StreamGeometry x:Key="IconTrash">M4.5 6.5 H19.5 M9 6.5 V4.5 H15 V6.5 M6.5 6.5 L7.5 20.5 H16.5 L17.5 6.5 M10 10 V17 M14 10 V17</StreamGeometry>
+        <StreamGeometry x:Key="IconCheck">M4.5 12.5 L10 18 L19.5 6.5</StreamGeometry>
+        <!-- 整合包（箱子）图标 -->
+        <StreamGeometry x:Key="IconPackage">M12 2.5 L21 7.2 V16.8 L12 21.5 L3 16.8 V7.2 Z M3.6 7.6 L12 12.2 L20.4 7.6 M12 12.2 V21.4 M8.2 4.9 L15.8 9.3</StreamGeometry>
+
+    </Styles.Resources>
+
+    <Style Selector="TextBlock.hTitle">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.hSection">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSection}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="LetterSpacing" Value="1.2"/>
+    </Style>
+    <Style Selector="TextBlock.hBody">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.hCaption">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+    </Style>
+
+    <!-- ==================== 玻璃卡片 ==================== -->
+    <Style Selector="Border.GlassCard">
+        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}"/>
+        <Setter Property="Padding" Value="20"/>
+    </Style>
+
+    <!-- ==================== 按钮 ==================== -->
+    <!-- 主按钮：渐变强调色 + hover 提亮 + 柔光阴影 -->
+    <Style Selector="Button.AccentButton">
+        <Setter Property="Background" Value="{StaticResource AccentGradientBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="26,12"/>
+        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#7C5CFF" BlurRadius="24" OffsetY="4" Opacity="0.45"/>
+                    </Border.Effect>
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.AccentButton:pointerover">
+        <Setter Property="Opacity" Value="0.88"/>
+    </Style>
+    <Style Selector="Button.AccentButton:pressed">
+        <Setter Property="Opacity" Value="0.75"/>
+    </Style>
+
+    <!-- 幽灵按钮：透明底 + 细边框 -->
+    <Style Selector="Button.GhostButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.GhostButton:pointerover">
+        <Setter Property="Background" Value="{StaticResource CardHoverBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+
+    <!-- ==================== 侧边导航按钮 ==================== -->
+    <Style Selector="ToggleButton.NavButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.2"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid>
+                    <!-- 选中态左侧渐变指示条 -->
+                    <Border Name="Indicator" Width="3.5" Height="22"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            CornerRadius="2"
+                            Background="{StaticResource AccentGradientBrush}"
+                            Opacity="0"/>
+                    <Border Name="HoverBg" Background="Transparent" CornerRadius="10" Margin="6,2">
+                        <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="12,0"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                    </Border>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ToggleButton.NavButton:pointerover">
+        <Setter Property="Background" Value="#0AFFFFFF"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.NavButton:checked">
+        <Setter Property="Background" Value="#14FFFFFF"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="ToggleButton.NavButton:checked /template/ Border#Indicator">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+
+    <!-- ==================== 输入控件 ==================== -->
+    <Style Selector="TextBox.GlassInput">
+        <Setter Property="Background" Value="#0DFFFFFF"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="PlaceholderText" Value=""/>
+    </Style>
+    <Style Selector="TextBox.GlassInput:focus /template/ Border#PART_Border">
+        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+    </Style>
+
+    <!-- ==================== 进度条 ==================== -->
+    <Style Selector="ProgressBar.GlassProgress">
+        <Setter Property="Height" Value="6"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Foreground" Value="{StaticResource AccentGradientBrush}"/>
+        <Setter Property="Background" Value="#14FFFFFF"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Value" Duration="0:0:0.25"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- ==================== 滚动条（细样式） ==================== -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Width" Value="6"/>
+    </Style>
+    <Style Selector="ScrollBar Thumb">
+        <Setter Property="Background" Value="#2AFFFFFF"/>
+        <Setter Property="CornerRadius" Value="3"/>
+    </Style>
+
+    <!-- ==================== ComboBox / CheckBox / Slider ==================== -->
+    <Style Selector="ComboBox.GlassCombo">
+        <Setter Property="Background" Value="#0DFFFFFF"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="CheckBox.GlassCheck">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Slider.GlassSlider">
+        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+    </Style>
+
+    <!-- ==================== ListBox 基座 ==================== -->
+    <Style Selector="ListBox">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+</Styles>

@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LoyaLauncher.Auth\LoyaLauncher.Auth.csproj" />
+    <ProjectReference Include="..\..\src\LoyaLauncher.Core\LoyaLauncher.Core.csproj" />
+    <ProjectReference Include="..\..\src\LoyaLauncher.Java\LoyaLauncher.Java.csproj" />
+    <ProjectReference Include="..\..\src\LoyaLauncher.Pack\LoyaLauncher.Pack.csproj" />
+  </ItemGroup>
+
+</Project>
