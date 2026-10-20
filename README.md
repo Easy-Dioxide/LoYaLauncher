@@ -83,4 +83,4 @@ git push origin v0.1.0
 
 ## 📄 License
 
-[MIT](LICENSE) © LoyaLauncher Contributors
+[MIT](LICENSE) © LoyaLauncher (Dioxide Industries, LLC.) Contributors
