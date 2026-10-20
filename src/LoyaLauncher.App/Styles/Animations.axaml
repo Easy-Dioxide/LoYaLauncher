@@ -1,0 +1,36 @@
+<!--
+  LoyaLauncher 动画系统
+  - 页面过渡：CompositePageTransition（横向滑动 + 交叉淡入）
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Styles.Resources>
+
+        <!-- ==================== 页面过渡 ======================= -->
+        <!-- 供 TransitioningContentControl.PageTransition 使用的组合过渡 -->
+        <CompositePageTransition x:Key="LoyaPageTransition">
+            <PageSlide Duration="0:0:0.32">
+                <PageSlide.Orientation>Horizontal</PageSlide.Orientation>
+                <PageSlide.SlideInEasing>
+                    <CubicEaseOut/>
+                </PageSlide.SlideInEasing>
+                <PageSlide.SlideOutEasing>
+                    <CubicEaseIn/>
+                </PageSlide.SlideOutEasing>
+            </PageSlide>
+            <CrossFade Duration="0:0:0.28"/>
+        </CompositePageTransition>
+
+    </Styles.Resources>
+
+    <!-- 页面容器：切入时统一淡入 -->
+    <Style Selector="StackPanel.AnimateIn">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+</Styles>

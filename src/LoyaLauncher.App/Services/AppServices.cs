@@ -1,0 +1,64 @@
+using LoyaLauncher.Auth;
+using LoyaLauncher.Bedrock;
+using LoyaLauncher.Core;
+using LoyaLauncher.Downloader;
+using LoyaLauncher.Java;
+using LoyaLauncher.Mods;
+using LoyaLauncher.Pack;
+using LoyaLauncher.App.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LoyaLauncher.App.Services;
+
+/// <summary>
+/// DI 容器组装。集中创建所有服务单例，ViewModel 通过构造函数注入获取。
+/// </summary>
+public static class AppServices
+{
+    public static IServiceProvider Provider { get; } = Configure();
+
+    private static IServiceProvider Configure()
+    {
+        LoyaPaths.EnsureDirectories();
+
+        var config = ConfigStore.Instance.Config;
+        var services = new ServiceCollection();
+
+        // ---------- 基础设施 ----------
+        services.AddSingleton(EventBus.Instance);
+        services.AddSingleton(new DownloadManager(EventBus.Instance, config.MaxConcurrentDownloads));
+
+        // JavaInstaller / JavaEditionService 依赖配置值 MirrorMode，用工厂注册
+        services.AddSingleton(sp => new JavaInstaller(
+            sp.GetRequiredService<DownloadManager>(),
+            sp.GetRequiredService<Core.EventBus>(),
+            sp.GetRequiredService<ConfigStore>().Config.Mirror));
+        services.AddSingleton(sp => new JavaEditionService(
+            sp.GetRequiredService<JavaInstaller>(),
+            sp.GetRequiredService<JreManager>(),
+            sp.GetRequiredService<DownloadManager>(),
+            sp.GetRequiredService<Core.EventBus>(),
+            sp.GetRequiredService<ConfigStore>().Config.Mirror));
+        services.AddSingleton<JreManager>();
+        services.AddSingleton<AccountManager>();
+        services.AddSingleton<ModrinthClient>();
+        services.AddSingleton<LoaderInstaller>();
+        services.AddSingleton<BedrockService>();
+
+        // ---------- 整合包与自动更新 ----------
+        services.AddSingleton<ModpackService>();
+        services.AddSingleton<Pack.UpdateService>();
+
+        // ---------- ViewModels ----------
+        services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<VersionsViewModel>();
+        services.AddSingleton<ModsViewModel>();
+        services.AddSingleton<ModpacksViewModel>();
+        services.AddSingleton<AccountsViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DownloadCenterViewModel>();
+
+        return services.BuildServiceProvider();
+    }
+}

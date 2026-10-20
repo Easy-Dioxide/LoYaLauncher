@@ -1,0 +1,29 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Rider / VS Code
+.idea/
+*.sln.iml
+.vscode/
+
+## 构建产物
+publish/
+*.log
+
+## 系统
+.DS_Store
+Thumbs.db
+
+## 本地覆盖配置（可能含敏感信息）
+*.local.json

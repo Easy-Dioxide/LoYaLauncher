@@ -1,0 +1,143 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
+             x:Class="LoyaLauncher.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="28,22">
+        <StackPanel MaxWidth="680">
+
+            <TextBlock Text="{DynamicResource Settings.Title}" Classes="hTitle" Margin="0,0,0,4"/>
+            <TextBlock Text="{DynamicResource Settings.Subtitle}" Classes="hCaption" Margin="0,0,0,22"/>
+
+            <!-- ============ 下载设置 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.Download}" Classes="hSection" Margin="0,0,0,14"/>
+
+                    <Grid ColumnDefinitions="160,*" Margin="0,0,0,12">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Settings.Mirror}"
+                                   VerticalAlignment="Center" Classes="hBody"/>
+                        <ComboBox Grid.Column="1" Classes="GlassCombo"
+                                  ItemsSource="{Binding MirrorModes}"
+                                  SelectedItem="{Binding Mirror}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="160,*">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Settings.Concurrency}"
+                                   VerticalAlignment="Center" Classes="hBody"/>
+                        <Slider Grid.Column="1" Classes="GlassSlider" Minimum="1" Maximum="32"
+                                Value="{Binding MaxConcurrentDownloads}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 游戏设置 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.Game}" Classes="hSection" Margin="0,0,0,14"/>
+
+                    <Grid ColumnDefinitions="160,*" Margin="0,0,0,12">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Settings.MaxMemory}"
+                                   VerticalAlignment="Center" Classes="hBody"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
+                            <Slider Grid.Column="0" Classes="GlassSlider" Minimum="1024" Maximum="16384"
+                                    Value="{Binding JavaMaxMemoryMb}"/>
+                            <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                       Text="{Binding JavaMaxMemoryMb, StringFormat='{}{0} MB'}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock Text="{DynamicResource Settings.JvmArgs}" Classes="hBody" Margin="0,0,0,6"/>
+                    <TextBox Classes="GlassInput" AcceptsReturn="True" Height="90"
+                             Text="{Binding JvmArguments}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{DynamicResource Settings.JvmArgsHint}" Classes="hCaption"
+                               Margin="2,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 启动器设置 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.Launcher}" Classes="hSection" Margin="0,0,0,14"/>
+
+                    <CheckBox Classes="GlassCheck" Margin="0,0,0,10"
+                              IsChecked="{Binding MinimizeAfterLaunch}"
+                              Content="{DynamicResource Settings.MinimizeAfterLaunch}"/>
+                    <CheckBox Classes="GlassCheck"
+                              IsChecked="{Binding ExperimentalEnabled}"
+                              Content="{DynamicResource Settings.Experimental}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 启动器更新 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.Update}" Classes="hSection" Margin="0,0,0,14"/>
+
+                    <Grid ColumnDefinitions="160,*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Settings.CurrentVersion}"
+                                   VerticalAlignment="Center" Classes="hBody"/>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="hBody"
+                                   Text="{Binding CurrentVersion}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <Button Grid.Column="2" Classes="GhostButton" Padding="18,8"
+                                Content="{DynamicResource Settings.CheckUpdate}"
+                                Command="{Binding CheckUpdateCommand}"
+                                IsVisible="{Binding !IsCheckingUpdate}"/>
+                    </Grid>
+
+                    <ProgressBar Classes="GlassProgress" Height="4" Margin="0,12,0,0"
+                                 IsVisible="{Binding IsCheckingUpdate}"
+                                 Value="{Binding UpdateProgress}" Maximum="1"/>
+
+                    <TextBlock Text="{Binding UpdateStatusText}" Classes="hCaption"
+                               Margin="2,10,0,0" TextWrapping="Wrap"
+                               IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <Button Classes="AccentButton" Padding="18,8" Margin="0,12,0,0"
+                            HorizontalAlignment="Left"
+                            Content="{DynamicResource Settings.DownloadUpdate}"
+                            Command="{Binding DownloadUpdateCommand}"
+                            IsVisible="{Binding HasUpdate}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 数据目录 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.Data}" Classes="hSection" Margin="0,0,0,12"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0" Classes="GlassInput" IsReadOnly="True"
+                                 Text="{Binding DataDirectory}"/>
+                        <Button Grid.Column="1" Classes="GhostButton" Margin="10,0,0,0"
+                                Content="{DynamicResource Settings.OpenFolder}"
+                                Command="{Binding OpenDataDirectoryCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 操作按钮 ============ -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"
+                           Foreground="{StaticResource SuccessBrush}" Margin="0,0,16,0"/>
+                <Button Classes="GhostButton" Content="{DynamicResource Settings.Reset}"
+                        Command="{Binding ResetCommand}"/>
+                <Button Classes="AccentButton" Margin="10,0,0,0" Padding="26,10"
+                        Content="{DynamicResource Settings.Save}"
+                        Command="{Binding SaveCommand}"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

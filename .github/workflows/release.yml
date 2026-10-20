@@ -1,0 +1,77 @@
+name: Release
+
+# 推送 v* 标签时自动构建三平台安装包并创建 GitHub Release。
+# asset 命名约定必须与 LoyaLauncher.Pack/UpdateService.PickAssetForPlatform 保持一致：
+#   LoyaLauncher-win-x64.zip / LoyaLauncher-linux-x64.zip
+#   LoyaLauncher-osx-x64.zip / LoyaLauncher-osx-arm64.zip
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: publish (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: osx-x64
+            os: macos-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish ${{ matrix.rid }}
+        run: >
+          dotnet publish src/LoyaLauncher.App/LoyaLauncher.App.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output ./publish/${{ matrix.rid }}
+
+      - name: Package zip
+        shell: bash
+        run: |
+          cd publish/${{ matrix.rid }}
+          zip -qr "../../LoyaLauncher-${{ matrix.rid }}.zip" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LoyaLauncher-${{ matrix.rid }}
+          path: LoyaLauncher-${{ matrix.rid }}.zip
+
+  release:
+    name: create release
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}

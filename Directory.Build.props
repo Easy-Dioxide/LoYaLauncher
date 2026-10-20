@@ -1,0 +1,15 @@
+<Project>
+
+  <!-- 公共编译属性：所有项目继承 -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace Condition="'$(RootNamespace)' == ''">$(MSBuildProjectName)</RootNamespace>
+    <Version>0.1.0</Version>
+    <Authors>LoyaLauncher Contributors</Authors>
+    <Product>LoyaLauncher</Product>
+  </PropertyGroup>
+
+</Project>
