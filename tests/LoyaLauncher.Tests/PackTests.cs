@@ -144,6 +144,8 @@ public class UpdateServiceTests
         {
             new() { Name = "LoyaLauncher-win-x64.zip", BrowserDownloadUrl = "https://example/win.zip" },
             new() { Name = "LoyaLauncher-linux-x64.zip", BrowserDownloadUrl = "https://example/linux.zip" },
+            new() { Name = "LoyaLauncher-osx-x64.zip", BrowserDownloadUrl = "https://example/osx-x64.zip" },
+            new() { Name = "LoyaLauncher-osx-arm64.zip", BrowserDownloadUrl = "https://example/osx-arm64.zip" },
         };
 
         var picked = UpdateService.PickAssetForPlatform(assets);
