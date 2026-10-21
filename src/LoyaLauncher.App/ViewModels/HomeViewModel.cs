@@ -26,6 +26,7 @@ public sealed partial class HomeViewModel : ViewModelBase
     private readonly AccountManager _accounts;
     private readonly Core.EventBus _bus;
     private readonly Core.ConfigStore _config;
+    private readonly LaunchPreflight _preflight;
     private readonly IDisposable _logSubscription;
     private readonly IDisposable _exitSubscription;
 
@@ -33,12 +34,14 @@ public sealed partial class HomeViewModel : ViewModelBase
         JavaEditionService java,
         AccountManager accounts,
         Core.EventBus bus,
-        Core.ConfigStore config)
+        Core.ConfigStore config,
+        LaunchPreflight preflight)
     {
         _java = java;
         _accounts = accounts;
         _bus = bus;
         _config = config;
+        _preflight = preflight;
 
         Logs.CollectionChanged += OnLogsCollectionChanged;
 
@@ -124,6 +127,13 @@ public sealed partial class HomeViewModel : ViewModelBase
 
     private static string Lang(string key) => Services.LangService.T(key, key);
 
+    /// <summary>带格式化参数的本地化（{0} {1} … 占位符）</summary>
+    private static string LangF(string key, params object?[] args)
+    {
+        var text = Services.LangService.T(key, key);
+        return args.Length > 0 ? string.Format(text, args) : text;
+    }
+
     // ======================= 生命周期 =======================
 
     public override void OnNavigatedTo()
@@ -160,6 +170,18 @@ public sealed partial class HomeViewModel : ViewModelBase
         if (account is null)
         {
             StatusText = Lang("Home.Error.NoAccount");
+            return;
+        }
+
+        // 启动前环境自检：磁盘空间 / 内存配置 / Java 匹配 / 版本安装状态。
+        // Error 级问题阻断启动；Warning/Info 写入日志面板供用户参考。
+        var report = await _preflight.CheckAsync(SelectedInstance, _config.Config.JavaMaxMemoryMb);
+        foreach (var issue in report.Issues)
+            Logs.Add(LangF(issue.Code, issue.Args));
+        if (!report.CanLaunch)
+        {
+            var blocked = report.Issues.First(i => i.BlocksLaunch);
+            StatusText = LangF(blocked.Code, blocked.Args);
             return;
         }
 

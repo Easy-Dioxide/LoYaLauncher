@@ -40,6 +40,9 @@ public static class AppServices
             sp.GetRequiredService<Core.EventBus>(),
             sp.GetRequiredService<ConfigStore>().Config.Mirror));
         services.AddSingleton<JreManager>();
+        services.AddSingleton(sp => new LaunchPreflight(
+            sp.GetRequiredService<JavaInstaller>(),
+            sp.GetRequiredService<JreManager>()));
         services.AddSingleton<AccountManager>();
         services.AddSingleton<ModrinthClient>();
         services.AddSingleton<LoaderInstaller>();

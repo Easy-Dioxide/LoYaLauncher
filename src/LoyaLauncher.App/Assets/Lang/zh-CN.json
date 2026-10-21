@@ -113,5 +113,14 @@
   "Settings.Downloading": "正在下载更新…",
   "Settings.UpdateReady": "更新已就绪，重启启动器后自动安装",
   "Settings.UpdateFailed": "更新失败",
-  "Settings.ReleaseNotes": "更新说明"
+  "Settings.ReleaseNotes": "更新说明",
+  "Preflight.NoVersion": "未选择游戏版本，请先在版本管理页创建实例",
+  "Preflight.VersionNotInstalled": "版本 {0} 尚未安装，启动时将自动下载安装",
+  "Preflight.JavaManaged": "将使用启动器管理的 Java {0}",
+  "Preflight.JavaSystem": "将使用系统 Java {0}（版本要求 {1}）",
+  "Preflight.JavaWillDownload": "未找到合适的 Java，启动时将自动下载 Java {0}（约 {1} MB）",
+  "Preflight.DiskCritical": "磁盘可用空间不足 {0} GB，无法安装和运行游戏，请清理磁盘后重试",
+  "Preflight.DiskLow": "磁盘可用空间仅剩 {0} GB，建议清理后再开始游戏",
+  "Preflight.MemoryExceeds": "配置的内存 {0} MB 已达到或超过物理内存 {1} MB，游戏无法启动，请到设置页调低",
+  "Preflight.MemoryTight": "系统仅剩 {0} MB 内存余量，游戏可能卡顿或崩溃，建议到设置页调低内存配置"
 }
