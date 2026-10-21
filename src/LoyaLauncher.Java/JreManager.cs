@@ -140,13 +140,6 @@ public sealed class JreManager
         throw new InvalidOperationException($"Java {majorVersion} 下载失败: {lastError?.Message}");
     }
 
-    /// <summary>托管 JRE 列表项</summary>
-    /// <param name="Major">Java 主版本号（目录名 java{Major}）</param>
-    /// <param name="Version">详细版本号（如 17.0.2+8），解析失败为 null</param>
-    /// <param name="SizeBytes">占用磁盘字节数</param>
-    /// <param name="Path">java 可执行文件完整路径</param>
-    public sealed record ManagedJavaInfo(int Major, string? Version, long SizeBytes, string Path);
-
     /// <summary>
     /// 列出所有已下载的托管 JRE。跳过无可执行文件的损坏目录（如下载中断残留）。
     /// 结果按主版本升序。
@@ -266,6 +259,13 @@ public sealed class JreManager
 }
 
 /// <summary>删除托管 JRE 的结果</summary>
+/// <summary>托管 JRE 列表项</summary>
+/// <param name="Major">Java 主版本号（目录名 java{Major}）</param>
+/// <param name="Version">详细版本号（如 17.0.2+8），解析失败为 null</param>
+/// <param name="SizeBytes">占用磁盘字节数</param>
+/// <param name="Path">java 可执行文件完整路径</param>
+public sealed record ManagedJavaInfo(int Major, string? Version, long SizeBytes, string Path);
+
 public enum RemoveRuntimeResult
 {
     /// <summary>已删除</summary>

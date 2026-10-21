@@ -61,6 +61,7 @@ public static class AppServices
         services.AddSingleton<AccountsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<DownloadCenterViewModel>();
+        services.AddSingleton<JavaManagerViewModel>();
 
         return services.BuildServiceProvider();
     }

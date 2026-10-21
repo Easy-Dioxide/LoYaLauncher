@@ -57,11 +57,30 @@ public sealed class JavaEditionService
 
     // ======================= 安装 =======================
 
-    /// <summary>安装版本（带阶段进度）</summary>
+    /// <summary>安装版本（带阶段进度）。安装完成后预下载该版本所需的 Java。</summary>
     public async Task InstallAsync(string versionId, IProgress<JavaInstallProgress>? progress = null, CancellationToken ct = default)
     {
         var adapter = new ProgressAdapter(versionId, progress);
         await _installer.InstallAsync(versionId, adapter, ct);
+
+        // 预下载 Java：安装完成即就绪，启动时零等待。
+        // 失败不阻断安装——启动时 EnsureJavaAsync 还会再试一次。
+        try
+        {
+            var json = await _installer.GetVersionJsonAsync(versionId, ct);
+            var major = JavaInstaller.GetRequiredJavaMajor(json);
+            progress?.Report(new JavaInstallProgress(versionId, "Java", $"Java {major}", 0.95));
+            await _jre.EnsureJavaAsync(major, ct);
+            progress?.Report(new JavaInstallProgress(versionId, "Java", $"Java {major}", 1.0));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // 预下载失败可容忍：启动路径上的 EnsureJavaAsync 会兜底
+        }
     }
 
     private sealed class ProgressAdapter(string versionId, IProgress<JavaInstallProgress>? target)

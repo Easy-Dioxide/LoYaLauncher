@@ -76,6 +76,8 @@
         <StreamGeometry x:Key="IconCheck">M4.5 12.5 L10 18 L19.5 6.5</StreamGeometry>
         <!-- 整合包（箱子）图标 -->
         <StreamGeometry x:Key="IconPackage">M12 2.5 L21 7.2 V16.8 L12 21.5 L3 16.8 V7.2 Z M3.6 7.6 L12 12.2 L20.4 7.6 M12 12.2 V21.4 M8.2 4.9 L15.8 9.3</StreamGeometry>
+        <!-- 放大镜（诊断）图标 -->
+        <StreamGeometry x:Key="IconSearch">M10.8 3.8 A7 7 0 1 0 10.8 17.8 A7 7 0 1 0 10.8 3.8 Z M10.8 1.8 A9 9 0 1 1 10.8 19.8 A9 9 0 1 1 10.8 1.8 Z M15.6 15.6 L21 21</StreamGeometry>
 
     </Styles.Resources>
 

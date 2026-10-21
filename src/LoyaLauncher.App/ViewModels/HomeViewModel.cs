@@ -70,6 +70,7 @@ public sealed partial class HomeViewModel : ViewModelBase
                 {
                     State = LaunchState.Idle;
                     StatusText = string.Format(Lang("Home.Status.Crashed"), e.ExitCode);
+                    DiagnoseLogs(); // 崩溃时自动诊断
                 }
                 IsLaunching = false;
             });
@@ -101,6 +102,18 @@ public sealed partial class HomeViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isEmpty;
+
+    [ObservableProperty]
+    private bool _hasCrashDiagnosis;
+
+    [ObservableProperty]
+    private string _crashTitle = "";
+
+    [ObservableProperty]
+    private string _crashSuggestion = "";
+
+    [ObservableProperty]
+    private string _crashEvidence = "";
 
     public ObservableCollection<GameInstance> Instances { get; } = [];
     public ObservableCollection<string> Logs { get; } = [];
@@ -160,6 +173,17 @@ public sealed partial class HomeViewModel : ViewModelBase
 
     // ======================= 命令 =======================
 
+    /// <summary>分析当前日志面板内容，给出崩溃诊断（自动触发或手动点击）</summary>
+    [RelayCommand]
+    private void DiagnoseLogs()
+    {
+        var diagnosis = CrashAnalyzer.Analyze(Logs);
+        HasCrashDiagnosis = diagnosis.Category != CrashCategory.Unknown || Logs.Count > 0;
+        CrashTitle = LangF(CrashAnalyzer.TitleKeyFor(diagnosis));
+        CrashSuggestion = LangF(CrashAnalyzer.SuggestionKeyFor(diagnosis));
+        CrashEvidence = diagnosis.Evidence ?? "";
+    }
+
     /// <summary>一键启动</summary>
     [RelayCommand]
     private async Task LaunchAsync()
@@ -190,6 +214,8 @@ public sealed partial class HomeViewModel : ViewModelBase
         LaunchProgress = 0;
         StatusText = Lang("Home.Status.Checking");
         Logs.Clear();
+        HasCrashDiagnosis = false;
+        CrashTitle = CrashSuggestion = CrashEvidence = "";
 
         try
         {

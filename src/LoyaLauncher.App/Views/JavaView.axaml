@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             xmlns:java="using:LoyaLauncher.Java"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
+             x:Class="LoyaLauncher.App.Views.JavaView"
+             x:DataType="vm:JavaManagerViewModel">
+
+    <Grid Margin="28,22">
+        <DockPanel>
+
+            <!-- ============ 顶部：标题 + 工具栏 ============ -->
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="{DynamicResource Java.Title}" Classes="hTitle"/>
+                <TextBlock Text="{DynamicResource Java.Subtitle}" Classes="hCaption" Margin="1,4,0,0"/>
+            </StackPanel>
+
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+                <Button Grid.Column="0" Classes="AccentButton" Padding="20,9"
+                        Content="{DynamicResource Java.Refresh}"
+                        Command="{Binding RefreshCommand}"/>
+                <TextBlock Grid.Column="1" Margin="14,0" VerticalAlignment="Center"
+                           Text="{Binding StatusText}" Classes="hCaption"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" MaxHeight="34"/>
+                <Button Grid.Column="2" Classes="GhostButton" Padding="14,8"
+                        Content="{DynamicResource Java.Remove}"
+                        Command="{Binding RemoveSelectedCommand}"
+                        IsEnabled="{Binding SelectedRuntime, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+            </Grid>
+
+            <!-- ============ 进度条 ============ -->
+            <ProgressBar DockPanel.Dock="Top" Classes="GlassProgress" Height="4"
+                         IsVisible="{Binding IsBusy}"
+                         Value="{Binding Progress}" Maximum="1"/>
+
+            <!-- ============ 系统 Java 状态 ============ -->
+            <Border DockPanel.Dock="Top" Classes="GlassCard" Padding="16,12" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal">
+                    <Path Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"
+                          Margin="0,0,10,0" Fill="{StaticResource AccentBrush}"
+                          Data="{StaticResource IconCheck}"/>
+                    <TextBlock Text="{Binding SystemJavaText}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 托管 JRE 列表 ============ -->
+            <Border Classes="GlassCard" Padding="6">
+                <DockPanel>
+                    <!-- 空状态 -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                IsVisible="{Binding HasNoRuntimes}">
+                        <TextBlock Text="{DynamicResource Java.Empty}" Classes="hBody"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Java.EmptyHint}" Classes="hCaption"
+                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <ListBox ItemsSource="{Binding ManagedRuntimes}" Background="Transparent"
+                             SelectedItem="{Binding SelectedRuntime}"
+                             IsVisible="{Binding !HasNoRuntimes}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:JavaRuntimeItem">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,9">
+                                    <Border Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0"
+                                            Background="#14FFFFFF" CornerRadius="5" Padding="8,3">
+                                        <TextBlock Text="{Binding Major}" FontSize="12"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock FontSize="12" Foreground="{StaticResource TextSecondaryBrush}">
+                                            <Run Text="Java"/>
+                                            <Run Text="{Binding Major}"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding Version}"/>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding Path}" FontSize="10"
+                                                   FontFamily="Consolas,Menlo,monospace"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   TextWrapping="NoWrap" TextTrimming="StartEllipsis"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="10,0"
+                                               FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                               Text="{Binding SizeText}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ============ 手动下载区 ============ -->
+            <Border DockPanel.Dock="Bottom" Classes="GlassCard" Padding="16,12" Margin="0,12,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{DynamicResource Java.DownloadMajor}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,0,10,0"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBox Width="70" Text="{Binding MajorVersionInput}"
+                             PlaceholderText="21"/>
+                    <Button Classes="AccentButton" Padding="16,7" Margin="10,0,0,0"
+                            Content="{DynamicResource Java.Download}"
+                            Command="{Binding DownloadCommand}"/>
+                    <Button Classes="GhostButton" Padding="12,7" Margin="10,0,0,0"
+                            Content="Java 8" Command="{Binding DownloadPresetCommand}" CommandParameter="8"/>
+                    <Button Classes="GhostButton" Padding="12,7" Margin="8,0,0,0"
+                            Content="Java 17" Command="{Binding DownloadPresetCommand}" CommandParameter="17"/>
+                    <Button Classes="GhostButton" Padding="12,7" Margin="8,0,0,0"
+                            Content="Java 21" Command="{Binding DownloadPresetCommand}" CommandParameter="21"/>
+                </StackPanel>
+            </Border>
+
+        </DockPanel>
+    </Grid>
+</UserControl>
