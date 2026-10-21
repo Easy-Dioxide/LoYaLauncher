@@ -43,7 +43,13 @@ jobs:
           --self-contained true
           --output ./publish/${{ matrix.rid }}
 
-      - name: Package zip
+      - name: Package zip (Windows)
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath "LoyaLauncher-${{ matrix.rid }}.zip" -Force
+
+      - name: Package zip (Unix)
+        if: matrix.rid != 'win-x64'
         shell: bash
         run: |
           cd publish/${{ matrix.rid }}
