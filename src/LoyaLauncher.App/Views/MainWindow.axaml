@@ -14,7 +14,25 @@
         TransparencyLevelHint="None"
         CornerRadius="0">
 
-    <Grid Background="{StaticResource AppBackgroundBrush}">
+    <!-- 入场初始态：透明 + 微缩；Opened 时由 code-behind 触发过渡到 1 -->
+    <Grid x:Name="RootGrid" Opacity="0" Background="{StaticResource AppBackgroundBrush}">
+        <Grid.RenderTransform>
+            <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+        </Grid.RenderTransform>
+        <Grid.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.3">
+                    <DoubleTransition.Easing>
+                        <CubicEaseOut/>
+                    </DoubleTransition.Easing>
+                </DoubleTransition>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.35">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
+            </Transitions>
+        </Grid.Transitions>
 
         <!-- ============ 背景装饰柔光 ============ -->
         <Ellipse Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -34,7 +52,7 @@
                         <Ellipse Width="11" Height="11" Fill="{StaticResource AccentGradientBrush}"/>
                         <TextBlock Text="LoyaLauncher" Margin="10,0,0,0" FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="v0.1.0" Margin="8,0,0,0" FontSize="11"
+                        <TextBlock Text="{Binding $parent[Window].DataContext.CurrentVersion}" Margin="8,0,0,0" FontSize="11"
                                    Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -43,16 +61,13 @@
                                FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                TextTrimming="CharacterEllipsis"/>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                        <Button Name="MinimizeButton" Content="—" Width="46" Height="42"
-                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                                FontSize="13" Cursor="Hand" Click="OnMinimizeWindow"/>
-                        <Button Name="MaximizeButton" Content="▢" Width="46" Height="42"
-                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                                FontSize="12" Cursor="Hand" Click="OnToggleMaximize"/>
-                        <Button Name="CloseButton" Content="✕" Width="46" Height="42"
-                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                                FontSize="12" Cursor="Hand" Click="OnCloseWindow"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,8,0">
+                        <Button Name="MinimizeButton" Content="—" Width="46" Height="34"
+                                Classes="WindowCaptionButton" Click="OnMinimizeWindow"/>
+                        <Button Name="MaximizeButton" Content="▢" Width="46" Height="34"
+                                Classes="WindowCaptionButton" Click="OnToggleMaximize"/>
+                        <Button Name="CloseButton" Content="✕" Width="46" Height="34"
+                                Classes="WindowCaptionButton CloseButton" Click="OnCloseWindow"/>
                     </StackPanel>
                 </Grid>
             </Border>

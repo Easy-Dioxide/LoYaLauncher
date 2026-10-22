@@ -98,7 +98,7 @@ public class LaunchCommandBuilderTests
     }
 
     [Fact]
-    public void Build_QuotesPathsWithSpaces()
+    public void Build_PathsWithSpaces_StayUnquotedRawValues()
     {
         var json = new VersionJson
         {
@@ -107,8 +107,124 @@ public class LaunchCommandBuilderTests
         };
 
         var cmd = LaunchCommandBuilder.Build(CreateContext(), json);
-        // "/tmp/game dir" 含空格，应被引号包裹
-        Assert.Contains("\"/tmp/game dir\"", cmd);
+        // "/tmp/game dir" 含空格，但输出必须是裸值——引号由 GameProcessRunner 的
+        // ArgumentList 统一添加；builder 预加引号会形成双重引号，Java 收到
+        // 字面引号路径导致找不到游戏目录
+        Assert.Contains("/tmp/game dir", cmd);
+        Assert.DoesNotContain("\"/tmp/game dir\"", cmd);
+    }
+
+    [Fact]
+    public void Build_ModernArguments_SpacePathsAlsoRaw()
+    {
+        var json = new VersionJson
+        {
+            MainClass = "net.minecraft.client.main.Main",
+            Arguments = new Arguments
+            {
+                Game = new List<ArgumentElement>
+                {
+                    new() { Value = JsonDocument.Parse("\"--gameDir\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"${game_directory}\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"--assetsDir\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"${assets_root}\"").RootElement },
+                },
+            },
+        };
+
+        var cmd = LaunchCommandBuilder.Build(CreateContext(), json);
+        Assert.Contains("/tmp/game dir", cmd);
+        Assert.Contains("/tmp/assets", cmd);
+        Assert.DoesNotContain("\"/tmp/game dir\"", cmd);
+        Assert.DoesNotContain("\"/tmp/assets\"", cmd);
+    }
+
+    [Fact]
+    public void Build_NoSpacePath_NoQuotesAdded()
+    {
+        var ctx = CreateContext();
+        ctx.GameDirectory = "/tmp/gamedir";
+        var json = new VersionJson
+        {
+            MainClass = "net.minecraft.client.main.Main",
+            MinecraftArguments = "--gameDir ${game_directory}",
+        };
+
+        var cmd = LaunchCommandBuilder.Build(ctx, json);
+        Assert.Contains("/tmp/gamedir", cmd);
+        Assert.Empty(cmd.Where(a => a.Contains('"'))); // 整个参数列表不应出现任何引号字符
+    }
+
+    [Fact]
+    public void Build_LegacyTemplateWithQuotedText_QuotesStrippedOnSplit()
+    {
+        // 整合包模板可能自带引号文本：拆分时感知分组但剥离引号
+        var json = new VersionJson
+        {
+            MainClass = "net.minecraft.client.main.Main",
+            MinecraftArguments = "--username ${auth_player_name} --gameDir \"${game_directory}\"",
+        };
+
+        var cmd = LaunchCommandBuilder.Build(CreateContext(), json);
+        Assert.Contains("--username", cmd);
+        Assert.Contains("LoyaPlayer", cmd);
+        Assert.Contains("--gameDir", cmd);
+        Assert.Contains("/tmp/game dir", cmd);      // 引号分组内的空格路径保持完整
+        Assert.DoesNotContain("\"/tmp/game dir\"", cmd);
+        Assert.Empty(cmd.Where(a => a.Contains('"')));
+    }
+
+    [Fact]
+    public void Build_EmptyArgumentsAndPlaceholders_NoEmptyItems()
+    {
+        var ctx = CreateContext();
+        ctx.ExtraJvmArgs = "   ";
+        var json = new VersionJson
+        {
+            MainClass = "net.minecraft.client.main.Main",
+            Arguments = new Arguments
+            {
+                Game = new List<ArgumentElement>
+                {
+                    new() { Value = JsonDocument.Parse("\"--quickPlayPath\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"${quickPlayPath}\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"--quickPlaySingleplayer\"").RootElement },
+                    new() { Value = JsonDocument.Parse("\"${quickPlaySingleplayer}\"").RootElement },
+                },
+            },
+        };
+
+        var cmd = LaunchCommandBuilder.Build(ctx, json);
+        // 空占位符展开为空参数项（与官方启动器行为一致，MC 客户端接受），
+        // 但不得产生引号，JVM 区也不得混入空项
+        var quickPlayIdx = cmd.IndexOf("--quickPlayPath");
+        Assert.True(quickPlayIdx >= 0);
+        Assert.Equal("", cmd[quickPlayIdx + 1]);
+        Assert.Empty(cmd.Where(a => a.Contains('"')));
+    }
+
+    [Fact]
+    public void Build_ArrayValueElement_EachItemSeparateArgument()
+    {
+        var json = new VersionJson
+        {
+            MainClass = "net.minecraft.client.main.Main",
+            Arguments = new Arguments
+            {
+                Game = new List<ArgumentElement>
+                {
+                    new()
+                    {
+                        Value = JsonDocument.Parse("[\"--first\", \"--second value\"]").RootElement,
+                    },
+                },
+            },
+        };
+
+        var cmd = LaunchCommandBuilder.Build(CreateContext(), json);
+        Assert.Contains("--first", cmd);
+        Assert.Contains("--second value", cmd); // 数组内单元素原样保留（含空格也不拆）
+        Assert.Empty(cmd.Where(a => a.Contains('"')));
     }
 
     [Fact]

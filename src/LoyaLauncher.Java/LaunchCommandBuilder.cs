@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LoyaLauncher.Java;
 
@@ -98,29 +99,49 @@ public static class LaunchCommandBuilder
 
             if (el.Value.ValueKind == System.Text.Json.JsonValueKind.String)
             {
-                result.Add(ReplacePlaceholders(el.Value.GetString() ?? "", ctx));
+                // 新版 arguments 每项独立传递，路径值保持裸值
+                result.Add(ReplacePlaceholders(el.Value.GetString() ?? "", ctx, p => p));
             }
             else if (el.Value.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
                 foreach (var item in el.Value.EnumerateArray())
                 {
                     if (item.ValueKind == System.Text.Json.JsonValueKind.String)
-                        result.Add(ReplacePlaceholders(item.GetString() ?? "", ctx));
+                        result.Add(ReplacePlaceholders(item.GetString() ?? "", ctx, p => p));
                 }
             }
         }
         return result;
     }
 
-    /// <summary>展开旧版 minecraftArguments 模板</summary>
+    /// <summary>
+    /// 展开旧版 minecraftArguments 模板。
+    /// 旧版模板是单行文本，替换后还要按空格拆分——路径值含空格时必须
+    /// 先用引号界定分组，拆分时再<em>剥离引号</em>输出裸值。
+    /// 引号只存在于拆分阶段内部：最终参数列表统一为裸值，
+    /// 由 GameProcessRunner 的 ArgumentList 按需自动加引号。
+    /// </summary>
     private static List<string> ExpandLegacyArguments(string template, LaunchContext ctx)
     {
-        // 占位符可能展开为带引号的路径（如 "C:\Users\John Doe\..."），
-        // 拆分时必须感知引号，否则路径会在空格处被拆碎。
-        return SplitRespectingQuotes(ReplacePlaceholders(template, ctx));
+        // 部分整合包模板自带引号包裹路径占位符（"--gameDir \"${game_directory}\""）。
+        // 这些引号只是分组界定，先归一化去掉，再由 QuoteIfNeeded 统一界定——
+        // 否则双层引号叠加会让分组判定失效，含空格路径仍被拆碎。
+        var normalized = QuotedPathPlaceholder.Replace(template, m => m.Value.Trim('"'));
+        return SplitRespectingQuotes(ReplacePlaceholders(normalized, ctx, QuoteIfNeeded));
     }
 
-    /// <summary>按空格拆分命令行，但保持双引号内的内容完整（引号本身保留）</summary>
+    /// <summary>紧贴路径占位符的引号（含占位符自身两侧）</summary>
+    private static readonly Regex QuotedPathPlaceholder = new(
+        "\"?\\$\\{(game_directory|assets_root|game_assets|natives_directory|classpath)\\}\"?",
+        RegexOptions.Compiled);
+
+    /// <summary>含空格路径加引号（仅用于旧版模板拆分阶段的分组界定，不会进入输出）</summary>
+    private static string QuoteIfNeeded(string path) =>
+        path.Contains(' ') ? $"\"{path}\"" : path;
+
+    /// <summary>
+    /// 按空格拆分命令行：双引号内的空格不拆分，引号分组本身不进入输出。
+    /// </summary>
     private static List<string> SplitRespectingQuotes(string line)
     {
         var result = new List<string>();
@@ -131,7 +152,6 @@ public static class LaunchCommandBuilder
             if (c == '"')
             {
                 inQuotes = !inQuotes;
-                current.Append(c);
             }
             else if (c == ' ' && !inQuotes)
             {
@@ -147,8 +167,14 @@ public static class LaunchCommandBuilder
         return result;
     }
 
-    /// <summary>占位符替换表（新旧版通用）</summary>
-    private static string ReplacePlaceholders(string input, LaunchContext ctx)
+    /// <summary>
+    /// 占位符替换表（新旧版通用）。
+    /// <paramref name="wrapPath"/> 控制路径型值的包裹方式：
+    /// 新版 arguments 传 identity（每项独立传递，无需引号）；
+    /// 旧版单行模板传 <see cref="QuoteIfNeeded"/>（拆分前界定分组，拆分后剥离）。
+    /// 两种情况最终输出都是裸值，引号统一由 ArgumentList 处理。
+    /// </summary>
+    private static string ReplacePlaceholders(string input, LaunchContext ctx, Func<string, string> wrapPath)
     {
         return input
             .Replace("${auth_player_name}", ctx.PlayerName)
@@ -159,11 +185,11 @@ public static class LaunchCommandBuilder
             .Replace("${user_type}", ctx.UserType)
             .Replace("${version_type}", "release")
             .Replace("${version_name}", ctx.VersionId)
-            .Replace("${game_directory}", Quote(ctx.GameDirectory))
-            .Replace("${assets_root}", Quote(ctx.AssetsDirectory))
+            .Replace("${game_directory}", wrapPath(ctx.GameDirectory))
+            .Replace("${assets_root}", wrapPath(ctx.AssetsDirectory))
             .Replace("${assets_index_name}", ctx.AssetIndexId)
-            .Replace("${game_assets}", Quote(ctx.AssetsDirectory))
-            .Replace("${natives_directory}", Quote(ctx.NativesDirectory))
+            .Replace("${game_assets}", wrapPath(ctx.AssetsDirectory))
+            .Replace("${natives_directory}", wrapPath(ctx.NativesDirectory))
             .Replace("${classpath}", ctx.Classpath)
             .Replace("${launcher_name}", ctx.LauncherName)
             .Replace("${launcher_version}", ctx.LauncherVersion)
@@ -178,10 +204,12 @@ public static class LaunchCommandBuilder
 
     private static void AppendStandardGameArgs(List<string> args, LaunchContext ctx)
     {
+        // 所有值均为裸值：GameProcessRunner 通过 ArgumentList 逐项传递，
+        // .NET 会为含空格的项自动加引号；此处预加引号会变成双重引号
         args.Add("--username"); args.Add(ctx.PlayerName);
         args.Add("--version"); args.Add(ctx.VersionId);
-        args.Add("--gameDir"); args.Add(Quote(ctx.GameDirectory));
-        args.Add("--assetsDir"); args.Add(Quote(ctx.AssetsDirectory));
+        args.Add("--gameDir"); args.Add(ctx.GameDirectory);
+        args.Add("--assetsDir"); args.Add(ctx.AssetsDirectory);
         args.Add("--assetIndex"); args.Add(ctx.AssetIndexId);
         args.Add("--uuid"); args.Add(ctx.PlayerUuid);
         args.Add("--accessToken"); args.Add(ctx.AccessToken);
@@ -195,8 +223,4 @@ public static class LaunchCommandBuilder
         args.Add(name);
         args.Add(value);
     }
-
-    /// <summary>含空格路径加引号（Windows 常见）</summary>
-    private static string Quote(string path) =>
-        path.Contains(' ') ? $"\"{path}\"" : path;
 }

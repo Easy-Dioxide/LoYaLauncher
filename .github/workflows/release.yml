@@ -35,12 +35,20 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # 从 tag 提取版本号（v0.4.0 → 0.4.0）注入构建：
+      # 否则 Directory.Build.props 的 0.1.0 会被打进发布包，
+      # 标题栏版本显示与自动更新比较都会错乱
+      - name: Extract version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Publish ${{ matrix.rid }}
         run: >
           dotnet publish src/LoyaLauncher.App/LoyaLauncher.App.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
           --self-contained true
+          -p:Version=${{ env.VERSION }}
           --output ./publish/${{ matrix.rid }}
 
       - name: Package zip (Windows)
@@ -63,6 +71,7 @@ jobs:
             --configuration Release --runtime win-x64 --self-contained true \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:EnableCompressionInSingleFile=true -p:DebugSymbols=false -p:DebugType=none \
+            -p:Version=${{ env.VERSION }} \
             --output ./single
           mv single/LoyaLauncher.App.exe "LoyaLauncher-${{ matrix.rid }}-single.exe"
 

@@ -70,6 +70,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _statusText = "就绪";
 
+    /// <summary>启动器版本号（标题栏展示，如 v0.3.0）</summary>
+    [ObservableProperty]
+    private string _currentVersion = Pack.UpdateService.CurrentVersion;
+
     public ObservableCollection<NavItem> NavItems { get; } = [];
 
     public MainWindowViewModel(IServiceProvider sp)

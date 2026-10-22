@@ -1,5 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             xmlns:views="using:LoyaLauncher.App.Views"
              x:Class="LoyaLauncher.App.App"
              RequestedThemeVariant="Dark">
 
@@ -9,6 +11,35 @@
         <StyleInclude Source="avares://LoyaLauncher.App/Styles/Glass.axaml"/>
         <StyleInclude Source="avares://LoyaLauncher.App/Styles/Animations.axaml"/>
     </Application.Styles>
+
+    <!-- ViewModel → View 映射：TransitioningContentControl 依此渲染 CurrentPage。
+         缺失时 Avalonia 回退为 VM 的 ToString()（曾出现内容区显示类型全名）。 -->
+    <Application.DataTemplates>
+        <DataTemplate x:DataType="vm:HomeViewModel">
+            <views:HomeView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:VersionsViewModel">
+            <views:VersionsView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:ModsViewModel">
+            <views:ModsView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:ModpacksViewModel">
+            <views:ModpacksView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:AccountsViewModel">
+            <views:AccountsView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:SettingsViewModel">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:DownloadCenterViewModel">
+            <views:DownloadCenterView />
+        </DataTemplate>
+        <DataTemplate x:DataType="vm:JavaManagerViewModel">
+            <views:JavaView />
+        </DataTemplate>
+    </Application.DataTemplates>
 
     <!-- 全局语言资源：由 App.axaml.cs 在启动时注入 -->
     <Application.Resources>

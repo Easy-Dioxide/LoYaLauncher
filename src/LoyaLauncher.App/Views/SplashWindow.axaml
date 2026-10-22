@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="480"
+        x:Class="LoyaLauncher.App.Views.SplashWindow"
+        Title="LoyaLauncher"
+        Icon="avares://LoyaLauncher.App/Assets/logo-256.png"
+        Width="440" Height="480"
+        WindowDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        x:CompileBindings="False"
+        Background="{StaticResource AppBackgroundBrush}">
+
+    <!-- 窗口自身不透明：不使用窗口级透明合成（无 compositor 的平台会整个窗口不渲染）。
+         全部动画由 code-behind 通过 Animation.RunAsync 播放（Avalonia 12 已移除
+         XAML 的 Animations 附加属性，且窗口透明在不支持合成的平台会整体不渲染）。 -->
+    <Border Background="{StaticResource AppBackgroundBrush}"
+            BorderBrush="#14FFFFFF" BorderThickness="1">
+        <Grid>
+
+            <!-- ============ 中央品牌区 ============ -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+
+                <!-- Logo + 呼吸光晕 -->
+                <Grid Width="150" Height="150" HorizontalAlignment="Center">
+                    <Ellipse x:Name="Glow" Width="150" Height="150"
+                             Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
+                    <Image x:Name="Logo" Width="104" Height="104" Stretch="Uniform"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Source="avares://LoyaLauncher.App/Assets/logo-256.png"/>
+                </Grid>
+
+                <!-- 字标 -->
+                <TextBlock Text="LOYA" HorizontalAlignment="Center"
+                           FontSize="42" FontWeight="Bold" LetterSpacing="8"
+                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,18,0,0"/>
+                <TextBlock Text="Minecraft 第三方启动器" HorizontalAlignment="Center"
+                           FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                           Margin="0,8,0,0"/>
+
+                <!-- 加载提示 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,34,0,0">
+                    <TextBlock Text="正在加载" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock x:Name="Dots" Text="…" FontSize="12" Margin="2,0,0,0"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- ============ 底部版本号 ============ -->
+            <TextBlock Text="{Binding VersionText}" HorizontalAlignment="Center"
+                       VerticalAlignment="Bottom" Margin="0,0,0,26"
+                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+
+        </Grid>
+    </Border>
+</Window>

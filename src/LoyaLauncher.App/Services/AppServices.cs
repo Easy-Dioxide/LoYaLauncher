@@ -25,6 +25,9 @@ public static class AppServices
         var services = new ServiceCollection();
 
         // ---------- 基础设施 ----------
+        // ConfigStore 是进程级单例（读 .loya/config）：注册实例本身，
+        // 各 ViewModel 通过构造注入获取同一份配置
+        services.AddSingleton(ConfigStore.Instance);
         services.AddSingleton(EventBus.Instance);
         services.AddSingleton(new DownloadManager(EventBus.Instance, config.MaxConcurrentDownloads));
 

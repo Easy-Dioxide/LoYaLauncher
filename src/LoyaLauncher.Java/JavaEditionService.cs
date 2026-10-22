@@ -25,6 +25,18 @@ public sealed class JavaEditionService
     private readonly Core.EventBus _bus;
     private readonly Core.MirrorMode _mirror;
 
+    /// <summary>当前正在运行的游戏进程（P1-5：持有引用，避免"启动后无人跟踪"）</summary>
+    private GameProcessRunner? _activeRunner;
+
+    /// <summary>是否有游戏正在运行</summary>
+    public bool HasActiveGame => _activeRunner is { IsRunning: true };
+
+    /// <summary>请求结束当前游戏进程（无运行时为空操作）</summary>
+    public void StopActiveGame()
+    {
+        _activeRunner?.Stop();
+    }
+
     public JavaEditionService(
         JavaInstaller installer,
         JreManager jre,
@@ -166,6 +178,10 @@ public sealed class JavaEditionService
         string extraJvmArgs = "",
         CancellationToken ct = default)
     {
+        // 取消边界：调用方传入已取消的令牌时，在任何安装/下载动作之前停下，
+        // 避免半途启动后状态不一致
+        ct.ThrowIfCancellationRequested();
+
         // 1. 确保版本已安装
         if (!_installer.IsInstalled(instance.VersionId))
             await _installer.InstallAsync(instance.VersionId, ct: ct);
@@ -220,17 +236,31 @@ public sealed class JavaEditionService
         _bus.Publish(new GameLogEvent(instance.VersionId, $"[LoyaLauncher] Java: {javaPath}", false));
         _bus.Publish(new GameLogEvent(instance.VersionId, $"[LoyaLauncher] 启动命令: {string.Join(' ', command)}", false));
 
-        // 6. 启动
+        // 6. 启动。监控任务不丢弃引用： finally 中释放进程句柄，
+        //    并按"取消 / 异常"分流记录，取消不当作崩溃。
         var runner = new GameProcessRunner(_bus);
+        _activeRunner = runner;
         _ = Task.Run(async () =>
         {
             try
             {
                 await runner.StartAsync(command, instance.GameDirectory, instance.VersionId, ct);
             }
+            catch (OperationCanceledException)
+            {
+                // 取消是预期路径：进程已被 runner 终止，GameExitedEvent 已发布，UI 自行复位
+                _bus.Publish(new GameLogEvent(instance.VersionId, "[LoyaLauncher] 启动已取消", false));
+            }
             catch (Exception ex)
             {
                 _bus.Publish(new GameLogEvent(instance.VersionId, $"[LoyaLauncher] 异常: {ex.Message}", true));
+            }
+            finally
+            {
+                // 进程已退出：释放 Process 句柄，避免每次启动泄漏一个内核对象
+                runner.Dispose();
+                if (ReferenceEquals(_activeRunner, runner))
+                    _activeRunner = null;
             }
         }, ct);
 

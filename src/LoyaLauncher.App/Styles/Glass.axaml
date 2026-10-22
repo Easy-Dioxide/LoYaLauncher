@@ -4,7 +4,8 @@
 -->
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:sys="using:System">
+        xmlns:sys="using:System"
+        xmlns:anim="using:Avalonia.Animation">
 
     <Styles.Resources>
 
@@ -54,8 +55,10 @@
         </RadialGradientBrush>
 
         <!-- ==================== 尺寸与字体 ==================== -->
-        <sys:Double x:Key="CardCornerRadius">16</sys:Double>
-        <sys:Double x:Key="ControlCornerRadius">10</sys:Double>
+        <!-- 必须是 CornerRadius 类型：Setter 经 StaticResource 取值时不做类型转换，
+             Double 资源直接赋给 CornerRadius 属性会在运行时 InvalidCastException -->
+        <CornerRadius x:Key="CardCornerRadius">16</CornerRadius>
+        <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
         <sys:Double x:Key="NavWidth">232</sys:Double>
         <sys:Double x:Key="FontSizeTitle">22</sys:Double>
         <sys:Double x:Key="FontSizeSection">13</sys:Double>
@@ -102,12 +105,38 @@
     </Style>
 
     <!-- ==================== 玻璃卡片 ==================== -->
+    <!-- 静态卡片：柔和外阴影增加悬浮层次 -->
     <Style Selector="Border.GlassCard">
         <Setter Property="Background" Value="{StaticResource CardBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource CardCornerRadius}"/>
         <Setter Property="Padding" Value="20"/>
+        <Setter Property="BoxShadow" Value="0 2 16 0 #26000000"/>
+    </Style>
+
+    <!-- 可交互卡片：hover 抬升 2px + 边框提亮 + 阴影加深（150ms） -->
+    <Style Selector="Border.GlassCard.Interactive">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.GlassCard.Interactive:pointerover">
+        <Setter Property="RenderTransform" Value="translateY(-2px)"/>
+        <Setter Property="BorderBrush" Value="#3DFFFFFF"/>
+        <Setter Property="BoxShadow" Value="0 8 28 0 #3D7C5CFF"/>
+    </Style>
+    <Style Selector="Border.GlassCard.Interactive:pressed">
+        <Setter Property="RenderTransform" Value="translateY(0px)"/>
+        <Setter Property="BoxShadow" Value="0 2 16 0 #26000000"/>
     </Style>
 
     <!-- ==================== 按钮 ==================== -->
@@ -122,7 +151,11 @@
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Transitions">
             <Transitions>
-                <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
             </Transitions>
         </Setter>
         <Setter Property="Template">
@@ -140,10 +173,10 @@
         </Setter>
     </Style>
     <Style Selector="Button.AccentButton:pointerover">
-        <Setter Property="Opacity" Value="0.88"/>
+        <Setter Property="RenderTransform" Value="scale(1.03)"/>
     </Style>
     <Style Selector="Button.AccentButton:pressed">
-        <Setter Property="Opacity" Value="0.75"/>
+        <Setter Property="RenderTransform" Value="scale(0.97)"/>
     </Style>
 
     <!-- 幽灵按钮：透明底 + 细边框 -->
@@ -156,6 +189,11 @@
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Transitions">
             <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
                 <BrushTransition Property="Background" Duration="0:0:0.15"/>
                 <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
             </Transitions>
@@ -174,8 +212,12 @@
         </Setter>
     </Style>
     <Style Selector="Button.GhostButton:pointerover">
+        <Setter Property="RenderTransform" Value="translateY(-1px)"/>
         <Setter Property="Background" Value="{StaticResource CardHoverBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.GhostButton:pressed">
+        <Setter Property="RenderTransform" Value="translateY(0px)"/>
     </Style>
 
     <!-- ==================== 侧边导航按钮 ==================== -->
@@ -221,6 +263,45 @@
     </Style>
     <Style Selector="ToggleButton.NavButton:checked /template/ Border#Indicator">
         <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="ToggleButton.NavButton /template/ Border#Indicator">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- ==================== 标题栏窗口按钮 ==================== -->
+    <!-- 无边框窗口的 最小化/最大化/关闭 按钮；关闭键 hover 呈 Windows 经典红 -->
+    <Style Selector="Button.WindowCaptionButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="6" Margin="4,6">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.WindowCaptionButton:pointerover">
+        <Setter Property="Background" Value="#1AFFFFFF"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.WindowCaptionButton.CloseButton:pointerover">
+        <Setter Property="Background" Value="#E81123"/>
+        <Setter Property="Foreground" Value="White"/>
     </Style>
 
     <!-- ==================== 输入控件 ==================== -->
@@ -282,6 +363,37 @@
     <!-- ==================== ListBox 基座 ==================== -->
     <Style Selector="ListBox">
         <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <!-- ListBoxItem：圆角 + hover/选中背景过渡（200ms） -->
+    <Style Selector="ListBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="4,2"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Layout"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Margin="{TemplateBinding Padding}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ListBoxItem:pointerover">
+        <Setter Property="Background" Value="#0AFFFFFF"/>
+    </Style>
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="Background" Value="#17FFFFFF"/>
     </Style>
 
 </Styles>
