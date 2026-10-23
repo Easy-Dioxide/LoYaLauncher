@@ -47,6 +47,7 @@ public static class AppServices
             sp.GetRequiredService<JavaInstaller>(),
             sp.GetRequiredService<JreManager>()));
         services.AddSingleton<AccountManager>();
+        services.AddSingleton<MicrosoftAuthService>();
         services.AddSingleton<ModrinthClient>();
         services.AddSingleton<LoaderInstaller>();
         services.AddSingleton<BedrockService>();

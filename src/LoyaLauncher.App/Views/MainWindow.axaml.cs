@@ -50,6 +50,13 @@ public partial class MainWindow : Window
         ToggleMaximize();
     }
 
+    /// <summary>点击侧栏底部账户胶囊 → 跳转账户管理页</summary>
+    private void AccountCapsule_OnTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is ViewModels.MainWindowViewModel vm)
+            vm.Navigate(ViewModels.LauncherPage.Accounts);
+    }
+
     private void OnMinimizeWindow(object? sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;

@@ -90,6 +90,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 从 tag 提取版本号，与 publish job 保持一致
+      - name: Extract version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # 源码打包：git archive 只含 HEAD 跟踪文件（自动排除 bin/obj 等未跟踪产物），
+      # 与平台安装包一同作为 Release 资产推送
+      - name: Package source code
+        shell: bash
+        run: |
+          git archive --format=zip \
+            --prefix=LoyaLauncher-src-${{ env.VERSION }}/ \
+            -o "LoyaLauncher-src-${{ env.VERSION }}.zip" HEAD
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -99,7 +113,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            artifacts/*
+            LoyaLauncher-src-${{ env.VERSION }}.zip
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}

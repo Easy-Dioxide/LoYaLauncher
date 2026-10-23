@@ -24,6 +24,7 @@ public sealed partial class HomeViewModel : ViewModelBase
 {
     private readonly JavaEditionService _java;
     private readonly AccountManager _accounts;
+    private readonly MicrosoftAuthService _msAuth;
     private readonly Core.EventBus _bus;
     private readonly Core.ConfigStore _config;
     private readonly LaunchPreflight _preflight;
@@ -33,12 +34,14 @@ public sealed partial class HomeViewModel : ViewModelBase
     public HomeViewModel(
         JavaEditionService java,
         AccountManager accounts,
+        MicrosoftAuthService msAuth,
         Core.EventBus bus,
         Core.ConfigStore config,
         LaunchPreflight preflight)
     {
         _java = java;
         _accounts = accounts;
+        _msAuth = msAuth;
         _bus = bus;
         _config = config;
         _preflight = preflight;
@@ -97,6 +100,10 @@ public sealed partial class HomeViewModel : ViewModelBase
     [ObservableProperty]
     private string _currentAccountText = "离线账户";
 
+    /// <summary>当前账户类型文案（主页芯片：离线模式 / 微软正版）</summary>
+    [ObservableProperty]
+    private string _accountKindText = "离线模式";
+
     [ObservableProperty]
     private bool _hasInstances;
 
@@ -154,6 +161,9 @@ public sealed partial class HomeViewModel : ViewModelBase
         RefreshInstances();
         var account = _accounts.CurrentAccount;
         CurrentAccountText = account is null ? "离线账户" : $"{account.PlayerName}";
+        AccountKindText = account is MicrosoftAccount
+            ? Lang("Home.Account.Microsoft")
+            : Lang("Home.Account.Offline");
     }
 
     /// <summary>刷新实例列表</summary>
@@ -195,6 +205,25 @@ public sealed partial class HomeViewModel : ViewModelBase
         {
             StatusText = Lang("Home.Error.NoAccount");
             return;
+        }
+
+        // 微软正版账户：启动前确保 MC 访问令牌可用（已过期则用刷新令牌静默续期）。
+        // 续期失败（刷新令牌失效等）阻断启动，引导用户回账户页重新登录，
+        // 避免带过期令牌启动后在会话校验阶段才失败。
+        if (account is MicrosoftAccount ms)
+        {
+            try
+            {
+                if (await _msAuth.EnsureFreshAsync(ms))
+                    _accounts.Update(ms); // 续期后的新令牌立即持久化
+            }
+            catch (MicrosoftAuthException ex)
+            {
+                StatusText = ex.Code is "refresh_failed" or "no_refresh_token"
+                    ? Lang("Home.Account.RefreshFailed")
+                    : $"{Lang("Home.Error.LaunchFailed")}: {ex.Message}";
+                return;
+            }
         }
 
         // 启动前环境自检：磁盘空间 / 内存配置 / Java 匹配 / 版本安装状态。

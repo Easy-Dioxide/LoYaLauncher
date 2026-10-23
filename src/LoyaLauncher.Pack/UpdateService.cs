@@ -211,6 +211,8 @@ public sealed class UpdateService
     /// <summary>
     /// 从 Release assets 中选择当前平台对应的安装包。
     /// 约定命名：LoyaLauncher-{rid}.zip（如 win-x64 / linux-x64 / osx-x64 / osx-arm64）。
+    /// 回退到任意平台 zip 时排除源码包（LoyaLauncher-src-*.zip），
+    /// 防止自动更新把源码压缩包误当安装包下载。
     /// 找不到时返回 null。
     /// </summary>
     public static GitHubAsset? PickAssetForPlatform(List<GitHubAsset> assets)
@@ -222,8 +224,12 @@ public sealed class UpdateService
             _ => "linux",
         } + "-" + (LoyaPaths.ArchId == "aarch64" ? "arm64" : "x64");
 
+        var isInstallableZip = new Func<GitHubAsset, bool>(a =>
+            a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+            && !a.Name.Contains("-src-", StringComparison.OrdinalIgnoreCase));
+
         return assets.FirstOrDefault(a =>
             a.Name.Equals($"LoyaLauncher-{rid}.zip", StringComparison.OrdinalIgnoreCase))
-            ?? assets.FirstOrDefault(a => a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            ?? assets.FirstOrDefault(isInstallableZip);
     }
 }

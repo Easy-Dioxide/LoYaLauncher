@@ -114,8 +114,19 @@ public sealed partial class JavaManagerViewModel : ViewModelBase
     }
 
     /// <summary>下载快捷版本（页面按钮直接传主版本）</summary>
+    /// 备注：XAML 的 CommandParameter 特性值是字符串，而 RelayCommand&lt;T&gt; 不做类型转换，
+    /// CanExecute/Execute 收到字符串会抛 ArgumentException——该异常顺着数据上下文向上冒泡，
+    /// 会中断整个页面的挂载（表现为整页空白）。因此这里按字符串接收并自行解析。
     [RelayCommand]
-    private async Task DownloadPresetAsync(int major) => await DownloadMajorAsync(major);
+    private async Task DownloadPresetAsync(string majorText)
+    {
+        if (!int.TryParse(majorText, out var major) || major is < 8 or > 64)
+        {
+            StatusText = Lang("Java.InvalidVersion");
+            return;
+        }
+        await DownloadMajorAsync(major);
+    }
 
     private async Task DownloadMajorAsync(int major)
     {

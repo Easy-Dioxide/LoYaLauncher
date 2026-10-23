@@ -135,7 +135,7 @@
         <Setter Property="BoxShadow" Value="0 8 28 0 #3D7C5CFF"/>
     </Style>
     <Style Selector="Border.GlassCard.Interactive:pressed">
-        <Setter Property="RenderTransform" Value="translateY(0px)"/>
+        <Setter Property="RenderTransform" Value="scale(0.985)"/>
         <Setter Property="BoxShadow" Value="0 2 16 0 #26000000"/>
     </Style>
 
@@ -217,47 +217,65 @@
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="Button.GhostButton:pressed">
-        <Setter Property="RenderTransform" Value="translateY(0px)"/>
+        <Setter Property="RenderTransform" Value="scale(0.97)"/>
     </Style>
 
     <!-- ==================== 侧边导航按钮 ==================== -->
+    <!-- 半透明磨砂卡片：常态淡底（比侧栏底色略亮，文字下始终有卡片承托）、
+         hover 提亮、选中强调底 + 左侧渐变指示条；
+         按压整卡缩放 0.97（仅 RenderTransform，合成层动画，不触发布局） -->
     <Style Selector="ToggleButton.NavButton">
-        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Background" Value="#0FFFFFFF"/>
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-        <Setter Property="FontSize" Value="14"/>
-        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <!-- 撑满侧栏宽度：卡片视觉横跨整条导航（内容宽度会让卡片只包住文字，
+             且窄项（主页/账户/设置）的点击区域过窄容易点空） -->
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Transitions">
             <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.2"/>
-                <BrushTransition Property="Foreground" Duration="0:0:0.2"/>
+                <BrushTransition Property="Background" Duration="0:0:0.18"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.18"/>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
             </Transitions>
         </Setter>
         <Setter Property="Template">
             <ControlTemplate>
-                <Grid>
-                    <!-- 选中态左侧渐变指示条 -->
-                    <Border Name="Indicator" Width="3.5" Height="22"
-                            HorizontalAlignment="Left" VerticalAlignment="Center"
-                            CornerRadius="2"
-                            Background="{StaticResource AccentGradientBrush}"
-                            Opacity="0"/>
-                    <Border Name="HoverBg" Background="Transparent" CornerRadius="10" Margin="6,2">
-                        <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="12,0"
+                <!-- 卡片底：按钮的 Background 经 TemplateBinding 透传，
+                     hover/选中态的淡背景因此真正可见（旧版模板未绑定，背景为死代码） -->
+                <Border CornerRadius="10" Margin="8,2"
+                        Background="{TemplateBinding Background}">
+                    <Grid>
+                        <!-- 选中态左侧渐变指示条 -->
+                        <Border Name="Indicator" Width="3.5" Height="20"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Margin="6,0,0,0"
+                                CornerRadius="2"
+                                Background="{StaticResource AccentGradientBrush}"
+                                Opacity="0"/>
+                        <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="18,0,10,0"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"/>
-                    </Border>
-                </Grid>
+                    </Grid>
+                </Border>
             </ControlTemplate>
         </Setter>
     </Style>
     <Style Selector="ToggleButton.NavButton:pointerover">
-        <Setter Property="Background" Value="#0AFFFFFF"/>
+        <Setter Property="Background" Value="#14FFFFFF"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
     </Style>
+    <Style Selector="ToggleButton.NavButton:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.97)"/>
+    </Style>
     <Style Selector="ToggleButton.NavButton:checked">
-        <Setter Property="Background" Value="#14FFFFFF"/>
+        <Setter Property="Background" Value="#1FFFFFFF"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -283,6 +301,11 @@
             <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.15"/>
                 <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
             </Transitions>
         </Setter>
         <Setter Property="Template">
@@ -294,6 +317,9 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+    </Style>
+    <Style Selector="Button.WindowCaptionButton:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.9)"/>
     </Style>
     <Style Selector="Button.WindowCaptionButton:pointerover">
         <Setter Property="Background" Value="#1AFFFFFF"/>
@@ -365,7 +391,7 @@
         <Setter Property="Background" Value="Transparent"/>
     </Style>
 
-    <!-- ListBoxItem：圆角 + hover/选中背景过渡（200ms） -->
+    <!-- ListBoxItem：圆角 + hover/选中背景过渡（200ms）+ 按压轻缩放（0.985） -->
     <Style Selector="ListBoxItem">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Padding" Value="4,2"/>
@@ -374,6 +400,11 @@
         <Setter Property="Transitions">
             <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12">
+                    <TransformOperationsTransition.Easing>
+                        <CubicEaseOut/>
+                    </TransformOperationsTransition.Easing>
+                </TransformOperationsTransition>
             </Transitions>
         </Setter>
         <Setter Property="Template">
@@ -391,6 +422,9 @@
     </Style>
     <Style Selector="ListBoxItem:pointerover">
         <Setter Property="Background" Value="#0AFFFFFF"/>
+    </Style>
+    <Style Selector="ListBoxItem:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.985)"/>
     </Style>
     <Style Selector="ListBoxItem:selected">
         <Setter Property="Background" Value="#17FFFFFF"/>

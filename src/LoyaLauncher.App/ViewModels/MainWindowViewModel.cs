@@ -66,6 +66,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _currentAccountName = "离线账户";
 
+    /// <summary>当前账户类型（侧栏胶囊展示：离线模式 / 微软正版）</summary>
+    [ObservableProperty]
+    private string _currentAccountKind = "离线模式";
+
     /// <summary>全局状态栏文本</summary>
     [ObservableProperty]
     private string _statusText = "就绪";
@@ -81,8 +85,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _sp = sp;
         _accounts = sp.GetRequiredService<Auth.AccountManager>();
         CurrentAccountName = _accounts.CurrentAccount?.PlayerName ?? "离线账户";
+        CurrentAccountKind = KindText(_accounts.CurrentAccount);
         _accounts.CurrentAccountChanged += () =>
+        {
             CurrentAccountName = _accounts.CurrentAccount?.PlayerName ?? "离线账户";
+            CurrentAccountKind = KindText(_accounts.CurrentAccount);
+        };
 
         // 图标取自 Glass.axaml 中定义的矢量资源
         var icons = new (string Key, StreamGeometry Geometry)[]
@@ -145,16 +153,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     public void Navigate(LauncherPage page)
     {
         var vm = GetPage(page);
-        if (CurrentPage == vm) return;
 
         foreach (var nav in NavItems)
             nav.IsSelected = false;
 
-        CurrentPage?.OnNavigatedFrom();
-        CurrentPage = vm;
+        // 页面未变时也要走完选中态复位：ToggleButton 的 IsChecked 是双向绑定，
+        // 重复点击当前项会先把它反选，若在此提前返回将留下"无任何选中项"的侧栏
+        if (CurrentPage != vm)
+        {
+            CurrentPage?.OnNavigatedFrom();
+            CurrentPage = vm;
+            vm.OnNavigatedTo();
+        }
+
         SelectedNav = _navMap[page];
         SelectedNav.IsSelected = true;
-        vm.OnNavigatedTo();
     }
 
     /// <summary>导航命令（供侧边栏绑定）</summary>
@@ -167,4 +180,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         if (_navMap.TryGetValue(LauncherPage.Downloads, out var nav))
             nav.Badge = count;
     }
+
+    /// <summary>账户类型展示文案</summary>
+    private static string KindText(Auth.GameAccount? account) => account switch
+    {
+        Auth.MicrosoftAccount => LangService.T("Home.Account.Microsoft", "微软正版"),
+        _ => LangService.T("Home.Account.Offline", "离线模式"),
+    };
 }

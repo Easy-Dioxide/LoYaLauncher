@@ -114,10 +114,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- 底部账户胶囊 -->
-                        <Border Grid.Row="2" Margin="14,10" Padding="12,10"
-                                Background="#0DFFFFFF" CornerRadius="12"
-                                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                        <!-- 底部账户胶囊（可点击 → 账户页；Interactive 提供 hover/按压反馈） -->
+                        <Border Grid.Row="2" Classes="GlassCard Interactive" Margin="14,10" Padding="12,10"
+                                CornerRadius="12" Tapped="AccountCapsule_OnTapped">
                             <Grid ColumnDefinitions="Auto,*,Auto">
                                 <Border Width="32" Height="32" CornerRadius="16"
                                         Background="{StaticResource AccentGradientBrush}">
@@ -128,9 +127,11 @@
                                     <TextBlock Text="{Binding $parent[Window].DataContext.CurrentAccountName}"
                                                FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
                                                TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="离线模式" FontSize="10"
+                                    <TextBlock Text="{Binding $parent[Window].DataContext.CurrentAccountKind}" FontSize="10"
                                                Foreground="{StaticResource SuccessBrush}"/>
                                 </StackPanel>
+                                <TextBlock Grid.Column="2" Text="›" FontSize="18" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"/>
                             </Grid>
                         </Border>
 
@@ -138,7 +139,7 @@
                         <Button Grid.Row="3" Classes="GhostButton" Margin="14,0,14,14"
                                 HorizontalAlignment="Stretch"
                                 Command="{Binding NavigateToCommand}"
-                                CommandParameter="Downloads">
+                                CommandParameter="{x:Static vm:LauncherPage.Downloads}">
                             <StackPanel Orientation="Horizontal">
                                 <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
                                       Margin="0,0,9,0" Fill="{Binding $parent[Button].Foreground}"

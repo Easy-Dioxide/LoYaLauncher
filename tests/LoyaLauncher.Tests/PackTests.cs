@@ -168,6 +168,24 @@ public class UpdateServiceTests
     }
 
     [Fact]
+    public void PickAssetForPlatform_SkipsSourcePackage()
+    {
+        // 源码包不得被选为更新安装包：即使它排在平台包前面、或平台包缺失时回退
+        var withRid = new List<GitHubAsset>
+        {
+            new() { Name = "LoyaLauncher-src-0.5.0.zip" },
+            new() { Name = "LoyaLauncher-win-x64.zip" },
+            new() { Name = "LoyaLauncher-linux-x64.zip" },
+        };
+        var picked = UpdateService.PickAssetForPlatform(withRid);
+        Assert.NotNull(picked);
+        Assert.DoesNotContain("src", picked!.Name, StringComparison.OrdinalIgnoreCase);
+
+        var srcOnly = new List<GitHubAsset> { new() { Name = "LoyaLauncher-src-0.5.0.zip" } };
+        Assert.Null(UpdateService.PickAssetForPlatform(srcOnly));
+    }
+
+    [Fact]
     public void CurrentVersion_IsNonEmpty()
     {
         Assert.False(string.IsNullOrWhiteSpace(UpdateService.CurrentVersion));

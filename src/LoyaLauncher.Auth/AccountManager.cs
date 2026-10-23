@@ -1,11 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using LoyaLauncher.Core;
 
 namespace LoyaLauncher.Auth;
 
 /// <summary>
 /// 账户管理器：JSON 持久化（.loya/config/accounts.json），
-/// 维护当前选中账户。二期将在此扩展微软 OAuth 与外置登录。
+/// 维护当前选中账户。支持离线账户与微软正版账户（多态，经 GameAccountConverter 判别）。
 /// </summary>
 public sealed class AccountManager
 {
@@ -13,10 +14,11 @@ public sealed class AccountManager
     {
         WriteIndented = true,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new GameAccountConverter() },
     };
 
     private readonly string _filePath;
-    private List<OfflineAccount> _accounts = [];
+    private List<GameAccount> _accounts = [];
     private string _currentId = "";
 
     public AccountManager()
@@ -25,11 +27,11 @@ public sealed class AccountManager
         Load();
     }
 
-    /// <summary>全部账户</summary>
-    public IReadOnlyList<OfflineAccount> Accounts => _accounts;
+    /// <summary>全部账户（离线 / 微软正版混合）</summary>
+    public IReadOnlyList<GameAccount> Accounts => _accounts;
 
     /// <summary>当前账户（无账户时为 null）</summary>
-    public OfflineAccount? CurrentAccount => _accounts.FirstOrDefault(a => a.Id == _currentId);
+    public GameAccount? CurrentAccount => _accounts.FirstOrDefault(a => a.Id == _currentId);
 
     /// <summary>当前账户变化事件</summary>
     public event Action? CurrentAccountChanged;
@@ -69,7 +71,7 @@ public sealed class AccountManager
         File.WriteAllText(_filePath, JsonSerializer.Serialize(data, JsonOpts));
     }
 
-    /// <summary>添加账户</summary>
+    /// <summary>添加离线账户</summary>
     public OfflineAccount Add(string playerName, string? skinPath = null, SkinModel skinModel = SkinModel.Classic)
     {
         var account = new OfflineAccount
@@ -80,6 +82,15 @@ public sealed class AccountManager
         };
         _accounts.Add(account);
         _currentId = account.Id;
+        Save();
+        CurrentAccountChanged?.Invoke();
+        return account;
+    }
+
+    /// <summary>添加微软正版账户（不自动切换，由用户手动「使用」）</summary>
+    public MicrosoftAccount AddMicrosoft(MicrosoftAccount account)
+    {
+        _accounts.Add(account);
         Save();
         CurrentAccountChanged?.Invoke();
         return account;
@@ -106,8 +117,8 @@ public sealed class AccountManager
         }
     }
 
-    /// <summary>更新账户信息（改名/换肤）</summary>
-    public void Update(OfflineAccount account)
+    /// <summary>更新账户信息（改名/换肤/令牌续期）</summary>
+    public void Update(GameAccount account)
     {
         var idx = _accounts.FindIndex(a => a.Id == account.Id);
         if (idx >= 0)
@@ -120,7 +131,7 @@ public sealed class AccountManager
 
     private sealed class AccountStore
     {
-        public List<OfflineAccount> Accounts { get; set; } = [];
+        public List<GameAccount> Accounts { get; set; } = [];
         public string CurrentId { get; set; } = "";
     }
 }

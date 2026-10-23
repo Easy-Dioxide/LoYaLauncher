@@ -52,7 +52,7 @@
                                                Foreground="{StaticResource AccentBrush}"/>
                                 </Border>
                                 <Border Background="#14FFFFFF" CornerRadius="6" Padding="9,4" Margin="8,0,0,0">
-                                    <TextBlock Text="{DynamicResource Home.OfflineMode}" FontSize="12"
+                                    <TextBlock Text="{Binding AccountKindText}" FontSize="12"
                                                Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </Border>
                             </StackPanel>
