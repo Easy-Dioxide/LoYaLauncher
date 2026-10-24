@@ -44,6 +44,7 @@ LoyaLauncher 是一个使用 **Avalonia + .NET 10** 构建的跨平台（Windows
 - **背景氛围**（v0.7.0）：两团柔光以 18s / 24s 周期异相缓慢漂移并呼吸明暗，静态画面持续微活
 - **启动画面光环**（v0.7.0）：Logo 外围渐变弧 2.2s 匀速旋转，亮段划过如流星绕环
 - **动效基础设施**（v0.7.0）：新增 Motion 模块（RevealChildren / RippleHost / Sheen / StartDrift / StartPulse / StartSpin），全部动画只驱动 Opacity / RenderTransform 合成层属性；任一动画失败均有兜底，绝不留下隐形内容或空白页面
+- **动效平滑性修复**（v0.7.1）：修复 v0.7.0 中交错入场 / 涟漪 / 扫光实际不生效的缺陷——Avalonia 12 未给 RenderTransform 注册动画器（`Animation.RunAsync` 直接抛「No animator registered」），一次性 transform 动画全部改走 `TransformOperationsTransition` 声明式过渡（实测插值平滑），入场上浮 / 涟漪扩散 / 高光横扫从此真正丝滑
 
 ### 路线图
 - authlib-injector 外置登录（模型已预留）

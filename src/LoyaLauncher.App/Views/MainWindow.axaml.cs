@@ -36,12 +36,19 @@ public partial class MainWindow : Window
     /// 激活兜底说明：见构造函数中的 Activated 订阅。
     /// </summary>
     /// <summary>入场收尾：淡入到 1、缩放归位（Transitions 负责补间，幂等）</summary>
+    /// <remarks>
+    /// 时机纪律（Avalonia 12 实测）：Opened/Activated 当口设终态，过渡静默不播放
+    /// （直接跳变）；必须 Post 到布局帧之后（DispatcherPriority.Loaded）才恢复插值。
+    /// </remarks>
     private void ApplyReveal()
     {
         if (_revealed) return;
         _revealed = true;
-        RootGrid.Opacity = 1;
-        RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
+        Dispatcher.UIThread.Post(() =>
+        {
+            RootGrid.Opacity = 1;
+            RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
+        }, DispatcherPriority.Loaded);
     }
 
     /// <summary>
