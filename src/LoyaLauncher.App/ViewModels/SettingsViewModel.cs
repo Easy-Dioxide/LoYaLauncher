@@ -21,10 +21,27 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     // ======================= 镜像与下载 =======================
 
-    public MirrorMode[] MirrorModes { get; } = [MirrorMode.BmclapiFirst, MirrorMode.OfficialOnly, MirrorMode.BmclapiOnly];
+    public MirrorOption[] MirrorModes { get; } =
+    [
+        new("Mirror.Auto", MirrorMode.BmclapiFirst),
+        new("Mirror.Official", MirrorMode.OfficialOnly),
+        new("Mirror.Bmclapi", MirrorMode.BmclapiOnly),
+        new("Mirror.CustomFirst", MirrorMode.CustomFirst),
+        new("Mirror.CustomOnly", MirrorMode.CustomOnly),
+    ];
 
     [ObservableProperty]
-    private MirrorMode _mirror;
+    private MirrorOption _mirror = new("Mirror.Auto", MirrorMode.BmclapiFirst);
+
+    /// <summary>是否展示自定义源地址输入行</summary>
+    public bool IsCustomMirrorVisible =>
+        Mirror.Value is MirrorMode.CustomFirst or MirrorMode.CustomOnly;
+
+    [ObservableProperty]
+    private string _customMirrorUrl = "";
+
+    partial void OnMirrorChanged(MirrorOption value) =>
+        OnPropertyChanged(nameof(IsCustomMirrorVisible));
 
     [ObservableProperty]
     private int _maxConcurrentDownloads;
@@ -135,7 +152,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public override void OnNavigatedTo()
     {
         var c = _config.Config;
-        Mirror = c.Mirror;
+        Mirror = MirrorModes.FirstOrDefault(m => m.Value == c.Mirror) ?? MirrorModes[0];
+        CustomMirrorUrl = c.CustomMirrorUrl;
+        OnPropertyChanged(nameof(IsCustomMirrorVisible));
         MaxConcurrentDownloads = c.MaxConcurrentDownloads;
         JavaMaxMemoryMb = c.JavaMaxMemoryMb;
         JvmArguments = c.JvmArguments;
@@ -148,7 +167,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private void Save()
     {
         var c = _config.Config;
-        c.Mirror = Mirror;
+        c.Mirror = Mirror.Value;
+        c.CustomMirrorUrl = CustomMirrorUrl;
         c.MaxConcurrentDownloads = MaxConcurrentDownloads;
         c.JavaMaxMemoryMb = JavaMaxMemoryMb;
         c.JvmArguments = JvmArguments;
@@ -163,7 +183,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private void Reset()
     {
         var defaults = new AppConfig();
-        Mirror = defaults.Mirror;
+        Mirror = MirrorModes.FirstOrDefault(m => m.Value == defaults.Mirror) ?? MirrorModes[0];
+        CustomMirrorUrl = defaults.CustomMirrorUrl;
+        OnPropertyChanged(nameof(IsCustomMirrorVisible));
         MaxConcurrentDownloads = defaults.MaxConcurrentDownloads;
         JavaMaxMemoryMb = defaults.JavaMaxMemoryMb;
         JvmArguments = defaults.JvmArguments;

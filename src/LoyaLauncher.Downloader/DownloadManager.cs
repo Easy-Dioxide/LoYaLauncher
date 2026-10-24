@@ -197,6 +197,25 @@ public sealed class DownloadManager : IDisposable
             : DownloadResult.Fail($"{failures.Count} 个文件下载失败: {string.Join("; ", failures.Take(5))}");
     }
 
+    /// <summary>
+    /// 获取文本内容（不落盘、不走断点续传缓存）。用于镜像目录列表等小文件解析。
+    /// 失败返回 null，由调用方决定是否落到下一个源。
+    /// </summary>
+    public async Task<string?> GetStringAsync(string url, CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadAsStringAsync(ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { /* 忽略 */ }

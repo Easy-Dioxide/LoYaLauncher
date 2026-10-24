@@ -31,17 +31,17 @@ public static class AppServices
         services.AddSingleton(EventBus.Instance);
         services.AddSingleton(new DownloadManager(EventBus.Instance, config.MaxConcurrentDownloads));
 
-        // JavaInstaller / JavaEditionService 依赖配置值 MirrorMode，用工厂注册
+        // JavaInstaller / JavaEditionService 依赖镜像配置，传 ConfigStore 引用：
+        // 安装时实时读取，设置里切换镜像源即时生效，无需重启
         services.AddSingleton(sp => new JavaInstaller(
             sp.GetRequiredService<DownloadManager>(),
             sp.GetRequiredService<Core.EventBus>(),
-            sp.GetRequiredService<ConfigStore>().Config.Mirror));
+            sp.GetRequiredService<ConfigStore>()));
         services.AddSingleton(sp => new JavaEditionService(
             sp.GetRequiredService<JavaInstaller>(),
             sp.GetRequiredService<JreManager>(),
             sp.GetRequiredService<DownloadManager>(),
-            sp.GetRequiredService<Core.EventBus>(),
-            sp.GetRequiredService<ConfigStore>().Config.Mirror));
+            sp.GetRequiredService<Core.EventBus>()));
         services.AddSingleton<JreManager>();
         services.AddSingleton(sp => new LaunchPreflight(
             sp.GetRequiredService<JavaInstaller>(),
@@ -49,7 +49,9 @@ public static class AppServices
         services.AddSingleton<AccountManager>();
         services.AddSingleton<MicrosoftAuthService>();
         services.AddSingleton<ModrinthClient>();
-        services.AddSingleton<LoaderInstaller>();
+        services.AddSingleton(sp => new LoaderInstaller(
+            sp.GetRequiredService<DownloadManager>(),
+            sp.GetRequiredService<ConfigStore>()));
         services.AddSingleton<BedrockService>();
 
         // ---------- 整合包与自动更新 ----------
@@ -64,7 +66,11 @@ public static class AppServices
         services.AddSingleton<ModpacksViewModel>();
         services.AddSingleton<AccountsViewModel>();
         services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<DownloadCenterViewModel>();
+        services.AddSingleton(sp => new DownloadCenterViewModel(
+            sp.GetRequiredService<JavaEditionService>(),
+            sp.GetRequiredService<ModrinthClient>(),
+            sp.GetRequiredService<Core.EventBus>(),
+            sp.GetRequiredService<ConfigStore>()));
         services.AddSingleton<JavaManagerViewModel>();
 
         return services.BuildServiceProvider();

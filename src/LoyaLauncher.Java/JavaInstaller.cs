@@ -17,16 +17,31 @@ public sealed class JavaInstaller
 
     private readonly Downloader.DownloadManager _downloader;
     private readonly Core.EventBus _bus;
-    private readonly Core.MirrorMode _mirror;
+    private readonly Core.ConfigStore _config;
 
     /// <summary>安装阶段事件，供 UI 显示当前步骤</summary>
     public sealed record InstallProgressEvent(string VersionId, string Stage, string Detail, double Percent);
 
-    public JavaInstaller(Downloader.DownloadManager downloader, Core.EventBus bus, Core.MirrorMode mirror)
+    public JavaInstaller(Downloader.DownloadManager downloader, Core.EventBus bus, Core.ConfigStore config)
     {
         _downloader = downloader;
         _bus = bus;
-        _mirror = mirror;
+        _config = config;
+    }
+
+    /// <summary>
+    /// 解析下载源链：每次安装实时读取配置（切换镜像即时生效，无需重启）。
+    /// 自定义源地址为空时，CustomFirst/CustomOnly 自动退化为 BMCLAPI 优先，
+    /// 避免把整条链打断。
+    /// </summary>
+    private IReadOnlyList<Downloader.MirrorUrlSet> Chain()
+    {
+        var mode = _config.Config.Mirror;
+        var custom = _config.Config.CustomMirrorUrl;
+        if (mode is Core.MirrorMode.CustomFirst or Core.MirrorMode.CustomOnly &&
+            string.IsNullOrWhiteSpace(custom))
+            mode = Core.MirrorMode.BmclapiFirst;
+        return Downloader.MirrorSource.ResolveChain(mode, custom);
     }
 
     // ======================= 版本清单 =======================
@@ -46,7 +61,7 @@ public sealed class JavaInstaller
         }
 
         Exception? lastError = null;
-        foreach (var mirror in Downloader.MirrorSource.ResolveChain(_mirror))
+        foreach (var mirror in Chain())
         {
             try
             {
@@ -67,7 +82,7 @@ public sealed class JavaInstaller
         if (!File.Exists(jsonPath))
         {
             var downloaded = false;
-            foreach (var mirror in Downloader.MirrorSource.ResolveChain(_mirror))
+            foreach (var mirror in Chain())
             {
                 var result = await _downloader.DownloadFileAsync(
                     mirror.VersionJson(versionId), jsonPath, group: "version", ct: ct);
@@ -85,7 +100,7 @@ public sealed class JavaInstaller
             var parentPath = Path.Combine(LoyaPaths.Versions, root.InheritsFrom, $"{root.InheritsFrom}.json");
             if (!File.Exists(parentPath))
             {
-                foreach (var mirror in Downloader.MirrorSource.ResolveChain(_mirror))
+                foreach (var mirror in Chain())
                 {
                     var result = await _downloader.DownloadFileAsync(
                         mirror.VersionJson(root.InheritsFrom), parentPath, group: "version", ct: ct);
@@ -137,16 +152,14 @@ public sealed class JavaInstaller
         var clientJar = Path.Combine(versionDir, $"{versionId}.jar");
         if (json.Downloads?.Client is { } client)
         {
-            var r = await _downloader.DownloadFileAsync(
-                PickUrl(client, mirror => mirror.ClientJar(client.Sha1)),
-                clientJar, client.Sha1, group: "client", ct: ct);
-            if (!r.Success) throw new InvalidOperationException($"客户端 jar 下载失败: {r.Error}");
+            await DownloadWithChainAsync(
+                [(clientJar, client.Sha1, "client", m => m.ClientJar(versionId, client.Sha1))], ct);
         }
 
         // 2. libraries（过滤 Rules，区分普通库与 natives）
         progress?.Report(new(versionId, "下载依赖库", "libraries", 0.2));
         var nativeDir = Path.Combine(versionDir, "natives");
-        var artifacts = new List<(string Url, string Path, string? Sha1)>();
+        var artifacts = new List<(string Path, string? Sha1, string MavenPath)>();
         var nativeJars = new List<string>();
 
         foreach (var lib in json.Libraries)
@@ -157,7 +170,7 @@ public sealed class JavaInstaller
             {
                 var mavenPath = LibraryToMavenPath(lib.Name);
                 var dest = Path.Combine(LoyaPaths.Libraries, mavenPath.Replace('/', Path.DirectorySeparatorChar));
-                artifacts.Add((PickUrl(artifact, m => m.Library(mavenPath)), dest, artifact.Sha1));
+                artifacts.Add((dest, artifact.Sha1, mavenPath));
             }
 
             // natives 分类器
@@ -179,7 +192,7 @@ public sealed class JavaInstaller
                         {
                             var mavenPath = LibraryToMavenPath(lib.Name, name);
                             var dest = Path.Combine(LoyaPaths.Libraries, mavenPath.Replace('/', Path.DirectorySeparatorChar));
-                            artifacts.Add((PickUrl(info, m => m.Library(mavenPath)), dest, info.Sha1));
+                            artifacts.Add((dest, info.Sha1, mavenPath));
                             nativeJars.Add(dest);
                         }
                     }
@@ -187,9 +200,9 @@ public sealed class JavaInstaller
             }
         }
 
-        var libResult = await _downloader.DownloadManyAsync(
-            artifacts.Select(a => (a.Url, a.Path, (string?)a.Sha1, "libraries")), ct);
-        if (!libResult.Success) throw new InvalidOperationException($"依赖库下载失败: {libResult.Error}");
+        await DownloadWithChainAsync(
+            artifacts.Select(a => (a.Path, a.Sha1, "libraries",
+                (Func<Downloader.MirrorUrlSet, string>)(m => m.Library(a.MavenPath)))), ct);
 
         // 3. 解压 natives
         progress?.Report(new(versionId, "解压本地库", "natives", 0.6));
@@ -206,24 +219,31 @@ public sealed class JavaInstaller
         var indexPath = Path.Combine(LoyaPaths.Assets, "indexes", $"{assetIndexId}.json");
         if (json.AssetIndex is { } ai)
         {
-            var r = await _downloader.DownloadFileAsync(
-                PickUrl(ai, m => m.AssetsIndex(assetIndexId)), indexPath, ai.Sha1, group: "assets-index", ct: ct);
-            if (!r.Success) throw new InvalidOperationException($"资源索引下载失败: {r.Error}");
+            // 资源索引优先用版本 JSON 自带的官方 URL（BMCLAPI 系镜像基本不提供索引文件），
+            // JSON 缺 url 时才回退到镜像约定路径
+            await DownloadWithChainAsync(
+                [(indexPath, ai.Sha1, "assets-index",
+                    m => string.IsNullOrEmpty(ai.Url) ? m.AssetsIndex(assetIndexId) : ai.Url)], ct);
         }
 
         var assetIndex = JsonSerializer.Deserialize<AssetIndex>(await File.ReadAllTextAsync(indexPath, ct), JsonOpts);
         if (assetIndex is { Objects.Count: > 0 })
         {
             var objects = assetIndex.Objects
-                .Where(o => !File.Exists(Path.Combine(LoyaPaths.Assets, "objects", o.Value.Hash[..2], o.Value.Hash)))
                 .Select(o => (
-                    Url: PickObjectUrl(o.Value.Hash),
                     Path: Path.Combine(LoyaPaths.Assets, "objects", o.Value.Hash[..2], o.Value.Hash),
                     Sha1: (string?)o.Value.Hash,
-                    Group: "assets"))
+                    Group: "assets",
+                    UrlFor: (Func<Downloader.MirrorUrlSet, string>)(m => m.AssetObject(o.Value.Hash))))
                 .ToList();
-            await _downloader.DownloadManyAsync(objects, ct);
-            // 资源对象允许部分失败（少数非关键文件），不阻断安装
+            try
+            {
+                await DownloadWithChainAsync(objects, ct);
+            }
+            catch
+            {
+                // 资源对象允许部分失败（少数非关键文件），不阻断安装
+            }
         }
 
         // 5. 写入安装元数据
@@ -244,26 +264,57 @@ public sealed class JavaInstaller
         return true;
     }
 
-    private string PickObjectUrl(string hash)
+    /// <summary>
+    /// 按镜像链依次下载目标文件：每个文件优先走链首源；失败的文件自动切换到链上
+    /// 下一个源重试（DownloadFileAsync 幂等——已存在且 SHA1 校验通过的文件自动跳过，
+    /// 因此重试只会补齐缺口，不会重复传输）。
+    /// 全部源都失败时抛出聚合错误。
+    /// </summary>
+    private async Task DownloadWithChainAsync(
+        IEnumerable<(string Path, string? Sha1, string Group, Func<Downloader.MirrorUrlSet, string> UrlFor)> targets,
+        CancellationToken ct)
     {
-        var mirror = Downloader.MirrorSource.Create(
-            _mirror == Core.MirrorMode.OfficialOnly ? Downloader.MirrorKind.Official : Downloader.MirrorKind.Bmclapi);
-        return mirror.AssetObject(hash);
+        var chain = Chain();
+        var pending = targets.ToList();
+        string? lastError = null;
+
+        foreach (var mirror in chain)
+        {
+            if (pending.Count == 0) break;
+            var items = pending.Select(t => (t.UrlFor(mirror), t.Path, t.Sha1, t.Group)).ToArray();
+            var result = await _downloader.DownloadManyAsync(items, ct);
+            if (result.Success)
+            {
+                pending.Clear();
+                break;
+            }
+            lastError = result.Error;
+            // 缩小待重试集合：只保留仍未落盘/校验未过的文件
+            pending = pending.Where(t => !IsValidOnDisk(t.Path, t.Sha1)).ToList();
+        }
+
+        if (pending.Count > 0)
+            throw new InvalidOperationException(
+                $"下载失败（所有源均未成功，共 {pending.Count} 个文件）：" +
+                string.Join("、", pending.Take(3).Select(t => Path.GetFileName(t.Path))) +
+                (pending.Count > 3 ? " 等" : "") + $"；最后错误：{lastError}");
     }
 
-    /// <summary>根据镜像模式选择 URL：优先使用 manifest/JSON 自带的官方 URL，镜像模式下降级为镜像 URL</summary>
-    private string PickUrl(DownloadInfo info, Func<Downloader.MirrorUrlSet, string> mirrorSelector)
+    /// <summary>文件已存在且 SHA1 与期望一致（无期望值时只要求存在）</summary>
+    private static bool IsValidOnDisk(string path, string? sha1)
     {
-        if (_mirror == Core.MirrorMode.OfficialOnly)
-            return info.Url;
-        var mirror = Downloader.MirrorSource.Create(Downloader.MirrorKind.Bmclapi);
-        return mirrorSelector(mirror);
-    }
-
-    private static string PickUrl(AssetIndexRef info, Func<Downloader.MirrorUrlSet, string> mirrorSelector)
-    {
-        var mirror = Downloader.MirrorSource.Create(Downloader.MirrorKind.Bmclapi);
-        return mirrorSelector(mirror);
+        if (!File.Exists(path)) return false;
+        if (sha1 is null) return true;
+        try
+        {
+            return string.Equals(
+                Downloader.Sha1Util.ComputeFileHashAsync(path).GetAwaiter().GetResult(),
+                sha1, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // ======================= 工具方法 =======================

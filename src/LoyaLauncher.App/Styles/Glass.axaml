@@ -59,7 +59,7 @@
              Double 资源直接赋给 CornerRadius 属性会在运行时 InvalidCastException -->
         <CornerRadius x:Key="CardCornerRadius">16</CornerRadius>
         <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
-        <sys:Double x:Key="NavWidth">232</sys:Double>
+        <sys:Double x:Key="NavWidth">240</sys:Double>
         <sys:Double x:Key="FontSizeTitle">22</sys:Double>
         <sys:Double x:Key="FontSizeSection">13</sys:Double>
         <sys:Double x:Key="FontSizeBody">13</sys:Double>
@@ -227,8 +227,8 @@
     <Style Selector="ToggleButton.NavButton">
         <Setter Property="Background" Value="#0FFFFFFF"/>
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-        <Setter Property="FontSize" Value="13.5"/>
-        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="Padding" Value="14,13"/>
         <!-- 撑满侧栏宽度：卡片视觉横跨整条导航（内容宽度会让卡片只包住文字，
              且窄项（主页/账户/设置）的点击区域过窄容易点空） -->
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -249,17 +249,17 @@
             <ControlTemplate>
                 <!-- 卡片底：按钮的 Background 经 TemplateBinding 透传，
                      hover/选中态的淡背景因此真正可见（旧版模板未绑定，背景为死代码） -->
-                <Border CornerRadius="10" Margin="8,2"
+                <Border CornerRadius="12" Margin="9,3"
                         Background="{TemplateBinding Background}">
                     <Grid>
                         <!-- 选中态左侧渐变指示条 -->
-                        <Border Name="Indicator" Width="3.5" Height="20"
+                        <Border Name="Indicator" Width="4" Height="24"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
-                                Margin="6,0,0,0"
+                                Margin="7,0,0,0"
                                 CornerRadius="2"
                                 Background="{StaticResource AccentGradientBrush}"
                                 Opacity="0"/>
-                        <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="18,0,10,0"
+                        <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="20,0,12,0"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"/>
                     </Grid>
@@ -288,6 +288,43 @@
                 <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
             </Transitions>
         </Setter>
+    </Style>
+
+    <!-- ==================== 页签按钮（下载中心分段控件） ==================== -->
+    <!-- 未选中透明底 + 次级文字；选中淡白底 + 主文字（加粗）。
+         点击经 Command 切换页签，IsChecked 由 VM 单向驱动。 -->
+    <Style Selector="ToggleButton.TabButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="14,9"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ToggleButton.TabButton:pointerover">
+        <Setter Property="Background" Value="#0AFFFFFF"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.TabButton:checked">
+        <Setter Property="Background" Value="#1AFFFFFF"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
     <!-- ==================== 标题栏窗口按钮 ==================== -->

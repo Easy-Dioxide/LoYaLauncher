@@ -96,7 +96,7 @@
                                        <TextBlock Text="{Binding Path}" FontSize="10"
                                                   FontFamily="Consolas,Menlo,monospace"
                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                  TextWrapping="NoWrap" TextTrimming="StartEllipsis"/>
+                                                  TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                                    </StackPanel>
                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="10,0"
                                               FontSize="10" Foreground="{StaticResource TextMutedBrush}"

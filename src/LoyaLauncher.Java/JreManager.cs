@@ -8,7 +8,8 @@ namespace LoyaLauncher.Java;
 /// <summary>
 /// Java 运行时管理。策略：
 /// 1. 优先检测系统已安装 Java（java -version 解析主版本）
-/// 2. 不足时自动下载：BMCLAPI Java 镜像优先，Adoptium Temurin 回退
+/// 2. 不足时自动下载：清华大学 Adoptium 镜像优先（国内快），Adoptium 官方 API 次之，
+///    BMCLAPI Java 镜像兜底（当前 /java/* 整条 403，保留仅为将来恢复时的国内加速）
 /// </summary>
 public sealed class JreManager
 {
@@ -71,39 +72,53 @@ public sealed class JreManager
         var managed = GetManagedJavaPath(majorVersion);
         if (managed is not null) return managed;
 
-        // 2. 系统 Java 满足版本
+        // 2. 系统 Java 满足版本（含上限约束，见 IsAcceptable）
         var (sysPath, sysMajor) = await DetectSystemJavaAsync(ct);
-        if (sysPath is not null && sysMajor >= majorVersion)
+        if (sysPath is not null && IsAcceptable(sysMajor, majorVersion))
             return sysPath;
 
         // 3. 下载托管 JRE
         return await DownloadJreAsync(majorVersion, ct);
     }
 
+    /// <summary>
+    /// 系统 Java 能否担此任：主版本必须 ≥ 要求值；且当要求为 Java 8 时只接受 Java 8——
+    /// LWJGL 2.x（MC 1.13 以前依赖）与 Java 9+ 不兼容（libjawt.so 的
+    /// SUNWprivate_1.1 符号自 JDK 9 起被移除），用高版本 Java 将就会在
+    /// 加载本地库时直接崩溃。要求 Java 16/17/21 的版本则接受不低于它的系统 Java。
+    /// </summary>
+    private static bool IsAcceptable(int sysMajor, int required) =>
+        required <= 8 ? sysMajor == 8 : sysMajor >= required;
+
     private async Task<string> DownloadJreAsync(int majorVersion, CancellationToken ct)
     {
         var targetDir = Path.Combine(LoyaPaths.JavaRuntimes, $"java{majorVersion}");
         Directory.CreateDirectory(targetDir);
 
-        var candidates = new List<(string Url, string Ext)>
-        {
-            // BMCLAPI Java 镜像（国内快）
-            ($"https://bmclapi2.bangbang93.com/java/{majorVersion}/{LoyaPaths.PlatformId}/{LoyaPaths.ArchId}", ".zip"),
-            // Adoptium Temurin 官方 API
-            ($"https://api.adoptium.net/v3/binary/latest/{majorVersion}/ga/{LoyaPaths.PlatformId}/{LoyaPaths.ArchId}/jre/hotspot/normal/eclipse", ".zip"),
-        };
+        var candidates = await BuildJreCandidatesAsync(majorVersion, ct);
 
-        Exception? lastError = null;
-        foreach (var (url, ext) in candidates)
+        var errors = new List<string>();
+        for (var i = 0; i < candidates.Count; i++)
         {
-            var archive = Path.Combine(LoyaPaths.Cache, $"jre-{majorVersion}{ext}");
+            var (url, ext) = candidates[i];
+            var host = new Uri(url).Host;
+            // 每个候选独立归档名：避免上一源残留的 .part 被下一源断点续传拼成损坏文件
+            var archive = Path.Combine(LoyaPaths.Cache, $"jre-{majorVersion}-{i}{ext}");
             try
             {
                 var r = await _downloader.DownloadFileAsync(url, archive, group: "java", ct: ct);
-                if (!r.Success) continue;
+                if (!r.Success)
+                {
+                    errors.Add($"{host}: {r.Error}");
+                    continue;
+                }
 
                 var extractDir = Path.Combine(LoyaPaths.Cache, $"jre-{majorVersion}-extract");
                 if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
+                // TarFile.ExtractToDirectory 不像 ZipFile.ExtractToDirectory 那样会自动
+                // 创建目标目录，必须显式创建，否则 Linux/macOS 的 tar.gz 解压必抛
+                // DirectoryNotFoundException
+                Directory.CreateDirectory(extractDir);
                 await Task.Run(async () =>
                 {
                     if (ext == ".zip")
@@ -120,6 +135,10 @@ public sealed class JreManager
                     }
                 }, ct);
 
+                // 清空目标目录再搬入：上一候选可能留下了不完整的解压残留
+                if (Directory.Exists(targetDir)) Directory.Delete(targetDir, true);
+                Directory.CreateDirectory(targetDir);
+
                 // 将解压内容移动到目标目录
                 var inner = Directory.EnumerateDirectories(extractDir).FirstOrDefault();
                 var sourceRoot = inner ?? extractDir;
@@ -135,9 +154,84 @@ public sealed class JreManager
                 }
                 return javaPath;
             }
-            catch (Exception ex) { lastError = ex; }
+            catch (Exception ex) { errors.Add($"{host}: {ex.Message}"); }
         }
-        throw new InvalidOperationException($"Java {majorVersion} 下载失败: {lastError?.Message}");
+        throw new InvalidOperationException(
+            $"Java {majorVersion} 下载失败（已尝试 {candidates.Count} 个源）: {string.Join("; ", errors)}");
+    }
+
+    /// <summary>
+    /// 构建 JRE 下载候选源（按优先级排序）。附带归档扩展名：
+    /// Windows 为 .zip，Linux/macOS 为 .tar.gz（Adoptium 系发布物约定）。
+    /// </summary>
+    private async Task<List<(string Url, string Ext)>> BuildJreCandidatesAsync(int majorVersion, CancellationToken ct)
+    {
+        var ext = OperatingSystem.IsWindows() ? ".zip" : ".tar.gz";
+        var os = LoyaPaths.PlatformId;
+        var arch = LoyaPaths.ArchId;
+        var candidates = new List<(string, string)>();
+
+        // 1. 清华大学 Adoptium 镜像（国内快）。JRE 优先（体积约为 JDK 一半），
+        //    无 JRE 构建时（如 Java 16）自动退 JDK。
+        foreach (var kind in new[] { "jre", "jdk" })
+        {
+            var listing = await _downloader.GetStringAsync(
+                $"https://mirrors.tuna.tsinghua.edu.cn/Adoptium/{majorVersion}/{kind}/{arch}/{os}/", ct);
+            var file = PickLatestAsset(listing, $"OpenJDK{majorVersion}U-{kind}_{arch}_{os}_hotspot_", ext);
+            if (file is not null)
+                candidates.Add((
+                    $"https://mirrors.tuna.tsinghua.edu.cn/Adoptium/{majorVersion}/{kind}/{arch}/{os}/{file}", ext));
+        }
+
+        // 2. Adoptium 官方 API（latest 别名，全球可达）
+        foreach (var kind in new[] { "jre", "jdk" })
+            candidates.Add((
+                $"https://api.adoptium.net/v3/binary/latest/{majorVersion}/ga/{os}/{arch}/{kind}/hotspot/normal/eclipse", ext));
+
+        // 3. BMCLAPI Java 镜像（当前整条 403，保留仅为将来恢复时的国内加速）
+        candidates.Add(($"https://bmclapi2.bangbang93.com/java/{majorVersion}/{os}/{arch}", ext));
+
+        return candidates;
+    }
+
+    /// <summary>
+    /// 从镜像目录列表 HTML 中挑选指定前缀 + 扩展名的最新版本文件名。
+    /// 版本号形如 <c>8u504b01</c> 或 <c>17.0.9_9</c>，按数字段逐段比较。
+    /// 列表为空/无匹配返回 null（目录不存在或尚未发布构建）。
+    /// </summary>
+    public static string? PickLatestAsset(string? listingHtml, string filePrefix, string ext)
+    {
+        if (string.IsNullOrEmpty(listingHtml)) return null;
+        var matches = Regex.Matches(
+            listingHtml, $@"href=""{Regex.Escape(filePrefix)}(?<ver>[^""]+?){Regex.Escape(ext)}""");
+
+        string? best = null;
+        int[] bestKey = [];
+        foreach (Match m in matches)
+        {
+            var ver = m.Groups["ver"].Value;
+            var key = Regex.Matches(ver, @"\d+").Select(x => int.Parse(x.Value)).ToArray();
+            if (key.Length == 0) continue;
+            if (best is null || CompareVersionKeys(key, bestKey) > 0)
+            {
+                best = filePrefix + ver + ext;
+                bestKey = key;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>版本号数字段逐段比较（短的一方补 0），用于同主版本内排序</summary>
+    private static int CompareVersionKeys(int[] a, int[] b)
+    {
+        for (var i = 0; i < Math.Max(a.Length, b.Length); i++)
+        {
+            var x = i < a.Length ? a[i] : 0;
+            var y = i < b.Length ? b[i] : 0;
+            var cmp = x.CompareTo(y);
+            if (cmp != 0) return cmp;
+        }
+        return 0;
     }
 
     /// <summary>

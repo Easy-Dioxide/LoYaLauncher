@@ -54,7 +54,7 @@ public class LaunchPreflightTests : IDisposable
         (string? Path, int Major)? systemJava = null)
     {
         var installer = new JavaInstaller(
-            new Downloader.DownloadManager(new EventBus()), new EventBus(), MirrorMode.BmclapiFirst);
+            new Downloader.DownloadManager(new EventBus()), new EventBus(), ConfigStore.Instance);
         var jre = new JreManager(new Downloader.DownloadManager(new EventBus()));
         return new LaunchPreflight(
             installer, jre,

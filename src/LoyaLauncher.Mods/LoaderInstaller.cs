@@ -36,10 +36,12 @@ public sealed class LoaderInstaller
 
     private readonly Downloader.DownloadManager _downloader;
     private readonly HttpClient _http;
+    private readonly Core.ConfigStore _config;
 
-    public LoaderInstaller(Downloader.DownloadManager downloader)
+    public LoaderInstaller(Downloader.DownloadManager downloader, Core.ConfigStore config)
     {
         _downloader = downloader;
+        _config = config;
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Add("User-Agent", "LoyaLauncher/0.1.0");
     }
@@ -95,7 +97,7 @@ public sealed class LoaderInstaller
         await File.WriteAllTextAsync(Path.Combine(versionDir, $"{versionId}.json"), profileJson, ct);
 
         // 安装底层原版（fabric 依赖它）
-        var installer = new JavaInstaller(_downloader, Core.EventBus.Instance, Core.MirrorMode.BmclapiFirst);
+        var installer = new JavaInstaller(_downloader, Core.EventBus.Instance, _config);
         await installer.InstallAsync(mcVersion, ct: ct);
 
         // 安装 profile 自身声明的 libraries（loader + intermediary + mixin 等）
@@ -247,7 +249,7 @@ public sealed class LoaderInstaller
             Path.Combine(versionDir, $"{versionId}.json"),
             JsonSerializer.Serialize(profile, JsonOpts), ct);
 
-        var installer = new JavaInstaller(_downloader, Core.EventBus.Instance, Core.MirrorMode.BmclapiFirst);
+        var installer = new JavaInstaller(_downloader, Core.EventBus.Instance, _config);
         await installer.InstallAsync(mcVersion, ct: ct);
 
         progress?.Report(new("完成", versionId, 1.0));

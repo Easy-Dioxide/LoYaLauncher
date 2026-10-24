@@ -3,63 +3,328 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             xmlns:java="using:LoyaLauncher.Java"
+             xmlns:core="using:LoyaLauncher.Core"
+             xmlns:mods="using:LoyaLauncher.Mods"
+             xmlns:conv="using:LoyaLauncher.App.Converters"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.DownloadCenterView"
              x:DataType="vm:DownloadCenterViewModel">
 
+    <UserControl.Resources>
+        <conv:IsoDateConverter x:Key="IsoDate"/>
+    </UserControl.Resources>
+
     <Grid Margin="28,22">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,18">
-            <StackPanel>
+        <!-- ============ 标题 + 下载源切换 ============ -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+            <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource Downloads.Title}" Classes="hTitle"/>
                 <TextBlock Text="{DynamicResource Downloads.Subtitle}" Classes="hCaption" Margin="1,4,0,0"/>
             </StackPanel>
-            <Border Grid.Column="1" Padding="12,8" CornerRadius="10" VerticalAlignment="Center"
-                    Background="#0DFFFFFF" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-                <TextBlock Text="{Binding TotalSpeedText}" FontSize="12"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource Downloads.MirrorLabel}" FontSize="12"
+                           VerticalAlignment="Center" Margin="0,0,10,0"
                            Foreground="{StaticResource TextSecondaryBrush}"/>
-            </Border>
+                <ComboBox Classes="GlassCombo" MinWidth="170"
+                          ItemsSource="{Binding MirrorOptions}"
+                          SelectedItem="{Binding SelectedMirror}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MirrorOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
         </Grid>
 
-        <Border Grid.Row="1" Classes="GlassCard" Padding="6">
-            <ListBox Background="Transparent" ItemsSource="{Binding Tasks}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:DownloadTaskItem">
-                        <Grid Margin="14,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Width="34" Height="34" CornerRadius="9" Background="#14FFFFFF">
-                                <Path Width="15" Height="15" Stretch="Uniform"
-                                      Fill="{StaticResource TextSecondaryBrush}"
-                                      Data="{StaticResource IconDownload}"/>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0">
-                                <TextBlock Text="{Binding Group}" FontSize="13"
-                                           Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBlock Text="{Binding StatusText}" FontSize="10"
-                                           Foreground="{StaticResource TextMutedBrush}"/>
-                                <ProgressBar Classes="GlassProgress" Margin="0,6,0,0"
-                                             Value="{Binding Percent}" Maximum="100"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center"
-                                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+        <!-- 自定义源地址输入（选中自定义模式时出现） -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12"
+                    IsVisible="{Binding IsCustomMirrorVisible}">
+            <TextBox Classes="GlassInput" Width="360"
+                     Text="{Binding CustomMirrorUrl}"
+                     PlaceholderText="{DynamicResource Downloads.CustomMirrorPlaceholder}"/>
+            <TextBlock Text="{DynamicResource Downloads.CustomMirrorHint}" FontSize="11"
+                       VerticalAlignment="Center" Margin="12,0,0,0"
+                       Foreground="{StaticResource TextMutedBrush}"/>
+        </StackPanel>
+
+        <!-- ============ 页签栏（PCL2 式分段控件） ============ -->
+        <Border Grid.Row="2" Background="#0AFFFFFF" CornerRadius="12" Padding="4"
+                Margin="0,0,0,14" HorizontalAlignment="Left">
+            <StackPanel Orientation="Horizontal">
+                <ToggleButton Classes="TabButton" IsChecked="{Binding IsTabGame, Mode=OneWay}"
+                              Command="{Binding SelectTabCommand}" CommandParameter="0">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
+                              Margin="0,0,8,0" Fill="{Binding $parent[ToggleButton].Foreground}"
+                              Data="{StaticResource IconCube}"/>
+                        <TextBlock Text="{DynamicResource Downloads.TabGame}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Classes="TabButton" IsChecked="{Binding IsTabMods, Mode=OneWay}"
+                              Command="{Binding SelectTabCommand}" CommandParameter="1">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
+                              Margin="0,0,8,0" Fill="{Binding $parent[ToggleButton].Foreground}"
+                              Data="{StaticResource IconGrid}"/>
+                        <TextBlock Text="{DynamicResource Downloads.TabMods}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Classes="TabButton" IsChecked="{Binding IsTabTasks, Mode=OneWay}"
+                              Command="{Binding SelectTabCommand}" CommandParameter="2">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Width="15" Height="15" Stretch="Uniform" VerticalAlignment="Center"
+                              Margin="0,0,8,0" Fill="{Binding $parent[ToggleButton].Foreground}"
+                              Data="{StaticResource IconDownload}"/>
+                        <TextBlock Text="{DynamicResource Downloads.TabTasks}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
         </Border>
 
-        <!-- 空状态 -->
-        <TextBlock Grid.Row="1" Text="{DynamicResource Downloads.Empty}"
-                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Foreground="{StaticResource TextMutedBrush}"
-                   IsVisible="{Binding !HasActiveTasks}"/>
+        <!-- ============ 内容区 ============ -->
+        <Grid Grid.Row="3">
+
+            <!-- ======== 页签 0：游戏本体 ======== -->
+            <Grid IsVisible="{Binding IsTabGame}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="300"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左：版本列表 -->
+                <Grid Grid.Column="0" Margin="0,0,16,0" RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <TextBox Grid.Column="0" Classes="GlassInput"
+                                 Text="{Binding VersionSearchText}"
+                                 PlaceholderText="{DynamicResource Downloads.SearchVersion}"/>
+                        <ComboBox Grid.Column="1" Classes="GlassCombo" MinWidth="120" Margin="10,0,0,0"
+                                  ItemsSource="{Binding VersionFilters}"
+                                  SelectedItem="{Binding SelectedVersionFilter}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:VersionFilterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <Border Grid.Row="1" Classes="GlassCard" Padding="6">
+                        <Grid>
+                            <ListBox Background="Transparent"
+                                     ItemsSource="{Binding FilteredVersions}"
+                                     SelectedItem="{Binding SelectedVersion}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="java:ManifestVersion">
+                                        <Grid Margin="12,7">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Id}" FontSize="13.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <Border Grid.Column="1" VerticalAlignment="Center" Margin="12,0"
+                                                    Background="#14FFFFFF" CornerRadius="5" Padding="7,2">
+                                                <TextBlock Text="{Binding Type}" FontSize="10"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text="{Binding ReleaseTime, Converter={StaticResource IsoDate}}"
+                                                       FontSize="10" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock Text="{DynamicResource Downloads.VersionsEmpty}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       IsVisible="{Binding ShowVersionEmptyHint}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- 右：版本详情 + 安装 -->
+                <Border Grid.Column="1" Classes="GlassCard" Padding="18">
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="{DynamicResource Downloads.DetailTitle}" Classes="hSection" Margin="2,0,0,12"/>
+                            <TextBlock Text="{Binding SelectedVersion.Id}" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"
+                                       IsVisible="{Binding SelectedVersion, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <TextBlock Text="{DynamicResource Downloads.SelectVersionHint}" Classes="hCaption"
+                                       Margin="1,4,0,0"
+                                       IsVisible="{Binding SelectedVersion, Converter={x:Static ObjectConverters.IsNull}}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Margin="0,14,0,18"
+                                    IsVisible="{Binding SelectedVersion, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Grid.Column="0" Text="{DynamicResource Downloads.DetailType}" Classes="hCaption"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedVersionTypeLabel}" Classes="hBody"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="{DynamicResource Downloads.DetailTime}" Classes="hCaption"/>
+                                <TextBlock Text="{Binding SelectedVersionTimeLabel}" Classes="hBody"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="{DynamicResource Downloads.DetailJava}" Classes="hCaption"/>
+                                <TextBlock Text="{Binding SelectedVersionJavaMajor, StringFormat='Java {0}'}"
+                                           Classes="hBody" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid>
+                                <TextBlock Text="{DynamicResource Downloads.DetailStatus}" Classes="hCaption"/>
+                                <TextBlock Text="{DynamicResource Downloads.DetailInstalled}" Classes="hBody"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource SuccessBrush}"
+                                           IsVisible="{Binding IsSelectedVersionInstalled}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2">
+                            <ProgressBar Classes="GlassProgress" Height="4" Margin="0,0,0,12"
+                                         IsVisible="{Binding IsInstalling}"
+                                         Value="{Binding InstallProgress}" Maximum="100"/>
+                            <Button Classes="AccentButton" HorizontalAlignment="Stretch"
+                                    Content="{DynamicResource Downloads.InstallVersion}"
+                                    Command="{Binding InstallVersionCommand}"
+                                    IsEnabled="{Binding SelectedVersion, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <Button Classes="GhostButton" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                    Content="{DynamicResource Downloads.CancelInstall}"
+                                    Command="{Binding CancelInstallCommand}"
+                                    IsVisible="{Binding IsInstalling}"/>
+                            <TextBlock Text="{Binding VersionsStatusText}" Classes="hCaption"
+                                       Margin="2,10,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ======== 页签 1：Mod ======== -->
+            <Grid IsVisible="{Binding IsTabMods}" RowDefinitions="Auto,*,Auto">
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Classes="GlassInput"
+                             Text="{Binding ModSearchQuery}"
+                             PlaceholderText="{DynamicResource Downloads.SearchMods}"/>
+                    <ComboBox Grid.Column="1" Classes="GlassCombo" MinWidth="150" Margin="10,0,0,0"
+                              ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="core:GameInstance">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <ComboBox Grid.Column="2" Classes="GlassCombo" MinWidth="110" Margin="10,0,0,0"
+                              ItemsSource="{Binding Loaders}" SelectedItem="{Binding SelectedLoader}"/>
+                    <Button Grid.Column="3" Classes="AccentButton" Margin="10,0,0,0" Padding="18,10"
+                            Content="{DynamicResource Downloads.Search}"
+                            Command="{Binding SearchModsCommand}"/>
+                </Grid>
+
+                <Border Grid.Row="1" Classes="GlassCard" Padding="6">
+                    <Grid>
+                        <ListBox Background="Transparent" ItemsSource="{Binding ModResults}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="mods:ModrinthProject">
+                                    <Grid Margin="12,9">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="9" Background="#14FFFFFF">
+                                            <TextBlock Text="🧩" FontSize="17"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="11" Margin="0,2,0,0"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="420"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Downloads, StringFormat='{}{0} 次下载'}"
+                                                       FontSize="10" VerticalAlignment="Center" Margin="0,0,12,0"
+                                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                            <Button Classes="GhostButton" Padding="14,7" FontSize="12"
+                                                    VerticalAlignment="Center"
+                                                    Content="{DynamicResource Downloads.InstallMod}"
+                                                    Command="{Binding $parent[UserControl].DataContext.InstallModCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <!-- 无实例提示 -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            IsVisible="{Binding !HasInstances}">
+                            <TextBlock Text="{DynamicResource Downloads.NoInstance}" Classes="hBody"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Downloads.NoInstanceHint}" Classes="hCaption"
+                                       HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <TextBlock Grid.Row="2" Text="{Binding ModsStatusText}" Classes="hCaption"
+                           Margin="2,10,0,0" TextWrapping="Wrap"/>
+            </Grid>
+
+            <!-- ======== 页签 2：任务列表 ======== -->
+            <Grid IsVisible="{Binding IsTabTasks}">
+                <Border Classes="GlassCard" Padding="6">
+                    <ListBox Background="Transparent" ItemsSource="{Binding Tasks}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DownloadTaskItem">
+                                <Grid Margin="14,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="34" Height="34" CornerRadius="9" Background="#14FFFFFF">
+                                        <Path Width="15" Height="15" Stretch="Uniform"
+                                              Fill="{StaticResource TextSecondaryBrush}"
+                                              Data="{StaticResource IconDownload}"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0">
+                                        <TextBlock Text="{Binding Group}" FontSize="13"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding StatusText}" FontSize="10"
+                                                   Foreground="{StaticResource TextMutedBrush}"/>
+                                        <ProgressBar Classes="GlassProgress" Margin="0,6,0,0"
+                                                     Value="{Binding Percent}" Maximum="100"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <!-- 空状态 -->
+                <TextBlock Text="{DynamicResource Downloads.Empty}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           IsVisible="{Binding !HasActiveTasks}"/>
+            </Grid>
+        </Grid>
     </Grid>
 </UserControl>

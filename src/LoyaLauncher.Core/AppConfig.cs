@@ -9,6 +9,10 @@ public enum MirrorMode
     OfficialOnly,
     /// <summary>仅 BMCLAPI 镜像</summary>
     BmclapiOnly,
+    /// <summary>自定义源优先，失败依次回退 BMCLAPI、官方源</summary>
+    CustomFirst,
+    /// <summary>仅自定义源</summary>
+    CustomOnly,
 }
 
 /// <summary>启动器全局配置（config.json）</summary>
@@ -22,6 +26,12 @@ public sealed class AppConfig
 
     /// <summary>镜像模式</summary>
     public MirrorMode Mirror { get; set; } = MirrorMode.BmclapiFirst;
+
+    /// <summary>
+    /// 自定义下载源地址（需兼容 BMCLAPI 路径规范，如 https://bmclapi2.bangbang93.com）。
+    /// 仅 CustomFirst / CustomOnly 模式使用；为空时这两种模式自动退化为 BMCLAPI。
+    /// </summary>
+    public string CustomMirrorUrl { get; set; } = "";
 
     /// <summary>最大并发下载数</summary>
     public int MaxConcurrentDownloads { get; set; } = 8;
@@ -65,7 +75,9 @@ public sealed class WindowConfig
 {
     public double Width { get; set; } = 1100;
     public double Height { get; set; } = 720;
-    public double X { get; set; } = double.NaN;
-    public double Y { get; set; } = double.NaN;
+    /// <summary>窗口左上角 X；null = 由系统/居中定位（NaN 无法序列化为合法 JSON，故用可空类型）</summary>
+    public double? X { get; set; }
+    /// <summary>窗口左上角 Y；null = 由系统/居中定位</summary>
+    public double? Y { get; set; }
     public bool Maximized { get; set; }
 }

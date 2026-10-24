@@ -23,7 +23,6 @@ public sealed class JavaEditionService
     private readonly JreManager _jre;
     private readonly Downloader.DownloadManager _downloader;
     private readonly Core.EventBus _bus;
-    private readonly Core.MirrorMode _mirror;
 
     /// <summary>当前正在运行的游戏进程（P1-5：持有引用，避免"启动后无人跟踪"）</summary>
     private GameProcessRunner? _activeRunner;
@@ -41,14 +40,12 @@ public sealed class JavaEditionService
         JavaInstaller installer,
         JreManager jre,
         Downloader.DownloadManager downloader,
-        Core.EventBus bus,
-        Core.MirrorMode mirror)
+        Core.EventBus bus)
     {
         _installer = installer;
         _jre = jre;
         _downloader = downloader;
         _bus = bus;
-        _mirror = mirror;
     }
 
     // ======================= 版本清单 =======================
