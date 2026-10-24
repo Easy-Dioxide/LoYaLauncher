@@ -4,6 +4,8 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.Threading;
+// 命名空间 LoyaLauncher.App.Motion 与类名 Motion 同名，直接用会解析为命名空间，须起别名
+using LoyaMotion = LoyaLauncher.App.Motion.Motion;
 using LoyaLauncher.Pack;
 
 namespace LoyaLauncher.App.Views;
@@ -28,6 +30,7 @@ public partial class SplashWindow : Window
     private readonly DispatcherTimer _fallbackTimer;
     private readonly List<DispatcherTimer> _pulseTimers = new();
     private readonly CancellationTokenSource _animCts = new();
+    private DispatcherTimer? _haloTimer;
     private bool _closing;
 
     public SplashWindow()
@@ -59,6 +62,9 @@ public partial class SplashWindow : Window
         StartPulse(Glow, 0.45, 0.85, TimeSpan.FromSeconds(2.6));
         StartPulse(Logo, 0.92, 1.0, TimeSpan.FromSeconds(2.6));
         StartPulse(Dots, 0.3, 1.0, TimeSpan.FromSeconds(1.2));
+
+        // 旋转渐变弧光环：亮段划过如流星绕环（v0.7.0）
+        _haloTimer = LoyaMotion.StartSpin(Halo, TimeSpan.FromSeconds(2.2));
     }
 
     /// <summary>
@@ -130,6 +136,7 @@ public partial class SplashWindow : Window
         foreach (var t in _pulseTimers)
             t.Stop();
         _pulseTimers.Clear();
+        LoyaMotion.Stop(_haloTimer);
     }
 
     protected override void OnClosed(EventArgs e)

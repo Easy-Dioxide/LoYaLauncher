@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
              xmlns:java="using:LoyaLauncher.Java"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.JavaView"
              x:DataType="vm:JavaManagerViewModel">
@@ -12,7 +13,7 @@
        <!-- 注意：DockPanel 的 LastChildFill=true——最后一个子元素会填充剩余空间，
             且其显式 DockPanel.Dock 被忽略。因此「无 Dock 的列表卡」必须放最后，
             其余子元素按 Top/Top/Top/Top/Bottom 顺序排列在前。 -->
-       <DockPanel>
+       <DockPanel motion:Motion.RevealChildren="True">
 
            <!-- ============ 顶部：标题 + 工具栏 ============ -->
            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">

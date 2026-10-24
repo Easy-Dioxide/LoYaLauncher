@@ -25,10 +25,22 @@
             <!-- ============ 中央品牌区 ============ -->
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
 
-                <!-- Logo + 呼吸光晕 -->
+                <!-- Logo + 呼吸光晕 + 旋转渐变弧光环（v0.7.0） -->
                 <Grid Width="150" Height="150" HorizontalAlignment="Center">
                     <Ellipse x:Name="Glow" Width="150" Height="150"
                              Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
+                    <!-- 渐变描边弧：亮段随旋转划过，如流星绕环（StartSpin 驱动） -->
+                    <Ellipse x:Name="Halo" Width="134" Height="134" StrokeThickness="2.5"
+                             IsHitTestVisible="False" Opacity="0.9">
+                        <Ellipse.Stroke>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                <GradientStop Offset="0" Color="#007C5CFF"/>
+                                <GradientStop Offset="0.5" Color="#E6A78BFF"/>
+                                <GradientStop Offset="0.75" Color="#994CC9F0"/>
+                                <GradientStop Offset="1" Color="#007C5CFF"/>
+                            </LinearGradientBrush>
+                        </Ellipse.Stroke>
+                    </Ellipse>
                     <Image x:Name="Logo" Width="104" Height="104" Stretch="Uniform"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Source="avares://LoyaLauncher.App/Assets/logo-256.png"/>

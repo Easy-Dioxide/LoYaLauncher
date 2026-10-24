@@ -3,12 +3,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="28,22">
-        <StackPanel MaxWidth="680">
+        <StackPanel MaxWidth="680" motion:Motion.RevealChildren="True">
 
             <TextBlock Text="{DynamicResource Settings.Title}" Classes="hTitle" Margin="0,0,0,4"/>
             <TextBlock Text="{DynamicResource Settings.Subtitle}" Classes="hCaption" Margin="0,0,0,22"/>

@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
              xmlns:conv="using:LoyaLauncher.App.Views"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.AccountsView"
              x:DataType="vm:AccountsViewModel">
@@ -13,7 +14,7 @@
         <conv:StringNotEmptyConverter x:Key="StringNotEmpty"/>
     </UserControl.Resources>
 
-    <Grid Margin="28,22" ColumnDefinitions="*,320">
+    <Grid Margin="28,22" ColumnDefinitions="*,320" motion:Motion.RevealChildren="True">
 
         <!-- ============ 左：添加离线账户 ============ -->
         <StackPanel Grid.Column="0" Margin="0,0,18,0">

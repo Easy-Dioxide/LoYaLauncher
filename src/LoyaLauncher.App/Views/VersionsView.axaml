@@ -4,11 +4,12 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
              xmlns:java="using:LoyaLauncher.Java"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.VersionsView"
              x:DataType="vm:VersionsViewModel">
 
-    <Grid ColumnDefinitions="*,340" Margin="28,22">
+    <Grid ColumnDefinitions="*,340" Margin="28,22" motion:Motion.RevealChildren="True">
 
         <!-- ============ 左：可下载版本 ============ -->
         <DockPanel Grid.Column="0" Margin="0,0,18,0">

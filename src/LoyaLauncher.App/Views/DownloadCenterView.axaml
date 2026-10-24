@@ -7,6 +7,7 @@
              xmlns:core="using:LoyaLauncher.Core"
              xmlns:mods="using:LoyaLauncher.Mods"
              xmlns:conv="using:LoyaLauncher.App.Converters"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.DownloadCenterView"
              x:DataType="vm:DownloadCenterViewModel">
@@ -15,7 +16,7 @@
         <conv:IsoDateConverter x:Key="IsoDate"/>
     </UserControl.Resources>
 
-    <Grid Margin="28,22">
+    <Grid Margin="28,22" motion:Motion.RevealChildren="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>

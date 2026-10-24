@@ -5,7 +5,8 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="using:System"
-        xmlns:anim="using:Avalonia.Animation">
+        xmlns:anim="using:Avalonia.Animation"
+        xmlns:motion="using:LoyaLauncher.App.Motion">
 
     <Styles.Resources>
 
@@ -160,14 +161,31 @@
         </Setter>
         <Setter Property="Template">
             <ControlTemplate>
+                <!-- 外层 Border：渐变底 + 柔光阴影；ClipToBounds 把涟漪/扫光裁剪进圆角。
+                     内层 Grid 挂 RippleHost：按压时从命中点注入扩散圆（见 Motion）。
+                     sheen 层：hover 时一道斜向高光掠过（PointerEntered 驱动）。 -->
                 <Border Background="{TemplateBinding Background}"
                         CornerRadius="{TemplateBinding CornerRadius}"
-                        Padding="{TemplateBinding Padding}">
+                        Padding="{TemplateBinding Padding}"
+                        ClipToBounds="True">
                     <Border.Effect>
                         <DropShadowEffect Color="#7C5CFF" BlurRadius="24" OffsetY="4" Opacity="0.45"/>
                     </Border.Effect>
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                      Content="{TemplateBinding Content}"/>
+                    <Grid motion:Motion.RippleHost="True">
+                        <Border motion:Motion.Sheen="True" IsHitTestVisible="False" Opacity="0"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                    <GradientStop Offset="0" Color="#00FFFFFF"/>
+                                    <GradientStop Offset="0.45" Color="#38FFFFFF"/>
+                                    <GradientStop Offset="0.55" Color="#38FFFFFF"/>
+                                    <GradientStop Offset="1" Color="#00FFFFFF"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"/>
+                    </Grid>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -200,13 +218,17 @@
         </Setter>
         <Setter Property="Template">
             <ControlTemplate>
+                <!-- 同主按钮：Grid 层挂 RippleHost，按压注入扩散圆 -->
                 <Border Background="{TemplateBinding Background}"
                         BorderBrush="{StaticResource CardBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="{TemplateBinding CornerRadius}"
-                        Padding="{TemplateBinding Padding}">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                      Content="{TemplateBinding Content}"/>
+                        Padding="{TemplateBinding Padding}"
+                        ClipToBounds="True">
+                    <Grid motion:Motion.RippleHost="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"/>
+                    </Grid>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -252,13 +274,29 @@
                 <Border CornerRadius="12" Margin="9,3"
                         Background="{TemplateBinding Background}">
                     <Grid>
-                        <!-- 选中态左侧渐变指示条 -->
+                        <!-- 选中态左侧渐变指示条：scaleY 从 0 弹到 1（BackEaseOut 回弹），
+                             Opacity 同步过渡；未选中时收起为一条不可见的线 -->
                         <Border Name="Indicator" Width="4" Height="24"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
                                 Margin="7,0,0,0"
                                 CornerRadius="2"
                                 Background="{StaticResource AccentGradientBrush}"
-                                Opacity="0"/>
+                                Opacity="0"
+                                RenderTransformOrigin="50%,50%">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="0"/>
+                            </Border.RenderTransform>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.35">
+                                        <TransformOperationsTransition.Easing>
+                                            <BackEaseOut/>
+                                        </TransformOperationsTransition.Easing>
+                                    </TransformOperationsTransition>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
                         <ContentPresenter Name="Label" VerticalAlignment="Center" Margin="20,0,12,0"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"/>
@@ -281,13 +319,10 @@
     </Style>
     <Style Selector="ToggleButton.NavButton:checked /template/ Border#Indicator">
         <Setter Property="Opacity" Value="1"/>
+        <Setter Property="RenderTransform" Value="scale(1,1)"/>
     </Style>
     <Style Selector="ToggleButton.NavButton /template/ Border#Indicator">
-        <Setter Property="Transitions">
-            <Transitions>
-                <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
-            </Transitions>
-        </Setter>
+        <Setter Property="RenderTransform" Value="scale(1,0)"/>
     </Style>
 
     <!-- ==================== 页签按钮（下载中心分段控件） ==================== -->

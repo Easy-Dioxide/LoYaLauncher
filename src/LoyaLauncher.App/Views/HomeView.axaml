@@ -4,12 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:LoyaLauncher.App.ViewModels"
              xmlns:core="using:LoyaLauncher.Core"
+             xmlns:motion="using:LoyaLauncher.App.Motion"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
              x:Class="LoyaLauncher.App.Views.HomeView"
              x:DataType="vm:HomeViewModel">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="28,22">
-        <StackPanel>
+        <StackPanel motion:Motion.RevealChildren="True">
 
             <!-- ============ 标题区 ============ -->
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,22">

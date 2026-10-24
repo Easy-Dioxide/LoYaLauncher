@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+// 命名空间 LoyaLauncher.App.Motion 与类名 Motion 同名，直接用会解析为命名空间，须起别名
+using LoyaMotion = LoyaLauncher.App.Motion.Motion;
 
 namespace LoyaLauncher.App.Views;
 
@@ -9,6 +12,9 @@ public partial class MainWindow : Window
 {
     /// <summary>入场收尾是否已应用（幂等，防止重复触发）</summary>
     private bool _revealed;
+
+    /// <summary>背景柔光漂移句柄（窗口关闭时统一停止）</summary>
+    private readonly List<DispatcherTimer> _ambient = new();
 
     public MainWindow()
     {
@@ -23,6 +29,7 @@ public partial class MainWindow : Window
     {
         base.OnOpened(e);
         ApplyReveal();
+        StartAmbient();
     }
 
     /// <summary>
@@ -35,6 +42,25 @@ public partial class MainWindow : Window
         _revealed = true;
         RootGrid.Opacity = 1;
         RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
+    }
+
+    /// <summary>
+    /// 背景氛围（v0.7.0）：两团柔光异相缓慢漂移 + 透明度呼吸。
+    /// 只动 RenderTransform / Opacity（合成层），不触发布局。
+    /// </summary>
+    private void StartAmbient()
+    {
+        if (_ambient.Count > 0) return; // 幂等
+        // 主光斑：18s 周期，幅度较大，相位 0
+        _ambient.Add(LoyaMotion.StartDrift(
+            GlowA, amplitudeX: 26, amplitudeY: 18,
+            opacityFrom: 0.72, opacityTo: 1.0,
+            period: TimeSpan.FromSeconds(18), phase: 0));
+        // 副光斑：24s 周期，反向漂移，相位错开约 2/3 周期，亮度低于主光斑
+        _ambient.Add(LoyaMotion.StartDrift(
+            GlowB, amplitudeX: -22, amplitudeY: 14,
+            opacityFrom: 0.38, opacityTo: 0.62,
+            period: TimeSpan.FromSeconds(24), phase: Math.PI * 1.35));
     }
 
     /// <summary>自定义标题栏拖动</summary>
@@ -76,6 +102,11 @@ public partial class MainWindow : Window
 
     private void OnCloseWindow(object? sender, RoutedEventArgs e)
     {
+        // 停止背景漂移，避免关闭后 timer 仍持有窗口引用
+        foreach (var t in _ambient)
+            LoyaMotion.Stop(t);
+        _ambient.Clear();
+
         if (Avalonia.Application.Current?.ApplicationLifetime
             is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime)
         {
@@ -85,5 +116,13 @@ public partial class MainWindow : Window
         {
             Close();
         }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        foreach (var t in _ambient)
+            LoyaMotion.Stop(t);
+        _ambient.Clear();
+        base.OnClosed(e);
     }
 }

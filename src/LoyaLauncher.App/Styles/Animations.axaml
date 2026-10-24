@@ -8,9 +8,12 @@
     <Styles.Resources>
 
         <!-- ==================== 页面过渡 ======================= -->
-        <!-- 供 TransitioningContentControl.PageTransition 使用的组合过渡 -->
+        <!-- 供 TransitioningContentControl.PageTransition 使用的组合过渡。
+             v0.7.0 调优：时长收紧（滑动 0.32→0.26 / 淡入 0.28→0.22），
+             切页更利落；二级节奏交给内容交错入场（Motion.RevealChildren），
+             页面级位移只保留轻微滑动，避免与卡片上浮叠加成视觉噪音。 -->
         <CompositePageTransition x:Key="LoyaPageTransition">
-            <PageSlide Duration="0:0:0.32">
+            <PageSlide Duration="0:0:0.26">
                 <PageSlide.Orientation>Horizontal</PageSlide.Orientation>
                 <PageSlide.SlideInEasing>
                     <CubicEaseOut/>
@@ -19,7 +22,7 @@
                     <CubicEaseIn/>
                 </PageSlide.SlideOutEasing>
             </PageSlide>
-            <CrossFade Duration="0:0:0.28"/>
+            <CrossFade Duration="0:0:0.22"/>
         </CompositePageTransition>
 
     </Styles.Resources>

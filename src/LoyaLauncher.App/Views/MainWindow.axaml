@@ -34,11 +34,11 @@
             </Transitions>
         </Grid.Transitions>
 
-        <!-- ============ 背景装饰柔光 ============ -->
-        <Ellipse Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
+        <!-- ============ 背景装饰柔光（v0.7.0：异相缓慢漂移 + 呼吸，见 code-behind） ============ -->
+        <Ellipse x:Name="GlowA" Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
                  Margin="0,-280,-260,0" Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
-        <Ellipse Width="560" Height="560" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                 Margin="-200,0,0,-240" Opacity="0.55"
+        <Ellipse x:Name="GlowB" Width="560" Height="560" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Margin="-200,0,0,-240"
                  Fill="{StaticResource GlowBrush}" IsHitTestVisible="False"/>
 
         <Grid RowDefinitions="42,*">
