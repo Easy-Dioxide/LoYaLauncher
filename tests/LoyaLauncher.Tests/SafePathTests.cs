@@ -196,6 +196,14 @@ public sealed class SafeArchiveTests : IDisposable
             SafeArchive.ExtractTarSafely(fs, dest);
 
         Assert.Equal("hello tar", File.ReadAllText(Path.Combine(dest, "jdk", "bin", "java")));
+
+        // 回归防护：条目 mode 必须可读。曾因 BuildTar 漏写 mode 字段（全零），
+        // 提取出的文件无读权限，CI 非 root 用户读取即 UnauthorizedAccessException。
+        if (!OperatingSystem.IsWindows())
+        {
+            var mode = File.GetUnixFileMode(Path.Combine(dest, "jdk", "bin", "java"));
+            Assert.True(mode.HasFlag(UnixFileMode.UserRead), "提取出的文件必须可读");
+        }
     }
 
     /// <summary>手工构造 tar 归档（测试需要含 ../ 的恶意条目，框架 API 会拒绝构造）</summary>
@@ -205,6 +213,10 @@ public sealed class SafeArchiveTests : IDisposable
         var header = new byte[512];
         var nameBytes = System.Text.Encoding.ASCII.GetBytes(entryName);
         Array.Copy(nameBytes, header, Math.Min(nameBytes.Length, 100));
+        // mode 字段（偏移 100，8 字节八进制）必须给 0644：全零模式会让
+        // TarEntry.ExtractToFile 产出无任何权限位的文件，非 root 用户读取即
+        // UnauthorizedAccessException——本地 root 开发环境会掩盖该问题（CI 实锤）。
+        System.Text.Encoding.ASCII.GetBytes("0000644\0").CopyTo(header, 100);
         var sizeStr = Convert.ToString(content.Length, 8).PadLeft(11, '0');
         System.Text.Encoding.ASCII.GetBytes(sizeStr + "\0").CopyTo(header, 124);
         header[156] = (byte)'0'; // typeflag: 普通文件

@@ -317,61 +317,66 @@ public sealed class DownloadManager : IDisposable
                 TryDelete(partPath); // 服务器不支持续传：从头下载
 
             await using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-            await using var fileStream = new FileStream(
-                partPath, append ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None);
-
-            var buffer = new byte[81920];
-            long received = startBytes;
-            var sw = Stopwatch.StartNew();
-            var lastReport = TimeSpan.Zero;
-            var firstRead = true;
-
-            while (true)
+            // 用语句块而非声明式 await using：块结束即异步释放文件流，
+            // 随后的 File.Move 才不会在 Windows 上撞共享冲突
+            // （POSIX 允许移动打开中的文件，Windows 不允许——这是 0.8.0 Windows 回归根因）
+            await using (var fileStream = new FileStream(
+                partPath, append ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                int read;
-                try
+                var buffer = new byte[81920];
+                long received = startBytes;
+                var sw = Stopwatch.StartNew();
+                var lastReport = TimeSpan.Zero;
+                var firstRead = true;
+
+                while (true)
                 {
-                    // 停滞超时：每个分块都重新计时，慢速但持续的连接不会被误杀
-                    var readTask = contentStream.ReadAsync(buffer, ct).AsTask();
-                    var stall = Task.Delay(TimeSpan.FromSeconds(_stallTimeoutSeconds), ct);
-                    var completed = await Task.WhenAny(readTask, stall).ConfigureAwait(false);
-                    if (completed == stall)
+                    int read;
+                    try
                     {
-                        // 用户取消也会让 stall 延时任务结束：先区分取消与真停滞
-                        if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
+                        // 停滞超时：每个分块都重新计时，慢速但持续的连接不会被误杀
+                        var readTask = contentStream.ReadAsync(buffer, ct).AsTask();
+                        var stall = Task.Delay(TimeSpan.FromSeconds(_stallTimeoutSeconds), ct);
+                        var completed = await Task.WhenAny(readTask, stall).ConfigureAwait(false);
+                        if (completed == stall)
+                        {
+                            // 用户取消也会让 stall 延时任务结束：先区分取消与真停滞
+                            if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
+                            throw new TimeoutException($"下载停滞超过 {_stallTimeoutSeconds}s 无数据");
+                        }
+                        read = await readTask;
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
                         throw new TimeoutException($"下载停滞超过 {_stallTimeoutSeconds}s 无数据");
                     }
-                    read = await readTask;
-                }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                {
-                    throw new TimeoutException($"下载停滞超过 {_stallTimeoutSeconds}s 无数据");
+
+                    if (read == 0) break;
+
+                    if (firstRead)
+                    {
+                        firstRead = false;
+                        if (LooksLikeHtml(buffer.AsSpan(0, read)))
+                            throw new InvalidDataException("响应体为 HTML 内容（疑似错误页/拦截页）");
+                    }
+
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read), ct);
+                    received += read;
+
+                    if (sw.Elapsed - lastReport >= ProgressInterval)
+                    {
+                        lastReport = sw.Elapsed;
+                        var speed = received / Math.Max(sw.Elapsed.TotalSeconds, 0.001);
+                        _bus.Publish(new DownloadProgressEvent(
+                            taskId, received, total, speed, group,
+                            MirrorNames.Friendly(url), attempt - 1));
+                    }
                 }
 
-                if (read == 0) break;
-
-                if (firstRead)
-                {
-                    firstRead = false;
-                    if (LooksLikeHtml(buffer.AsSpan(0, read)))
-                        throw new InvalidDataException("响应体为 HTML 内容（疑似错误页/拦截页）");
-                }
-
-                await fileStream.WriteAsync(buffer.AsMemory(0, read), ct);
-                received += read;
-
-                if (sw.Elapsed - lastReport >= ProgressInterval)
-                {
-                    lastReport = sw.Elapsed;
-                    var speed = received / Math.Max(sw.Elapsed.TotalSeconds, 0.001);
-                    _bus.Publish(new DownloadProgressEvent(
-                        taskId, received, total, speed, group,
-                        MirrorNames.Friendly(url), attempt - 1));
-                }
+                await fileStream.FlushAsync(ct);
             }
 
-            await fileStream.FlushAsync(ct);
-            // 原子替换到目标路径（校验在调用方进行）
+            // 原子替换到目标路径（校验在调用方进行）；fileStream 已释放，Windows 可安全移动
             File.Move(partPath, destinationPath, overwrite: true);
         }
     }

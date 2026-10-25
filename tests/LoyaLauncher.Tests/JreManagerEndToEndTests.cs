@@ -52,6 +52,11 @@ public sealed class JreManagerEndToEndTests : IDisposable
                 : "#!/bin/sh\nexit 3\n";
 
             AddFile(tarWriter, "jdk-17.0.2+8/bin/java", script);
+            // Windows 上 GetManagedJavaPath 查找的是 java.exe。补一个同名条目，
+            // 使"文件已就位"的路径在 Windows 上同样能走到（内容非 PE，执行必然失败——
+            // 正好用于验证"无法执行"的失败分支；成功路径经注入探针验证）。
+            if (OperatingSystem.IsWindows())
+                AddFile(tarWriter, "jdk-17.0.2+8/bin/java.exe", script);
             AddFile(tarWriter, "jdk-17.0.2+8/release", "JAVA_VERSION=\"17.0.2\"\nIMPLEMENTOR_VERSION=\"Temurin\"\n");
             if (extraEntry is not null)
                 AddFile(tarWriter, extraEntry, "escaped");
@@ -99,8 +104,11 @@ public sealed class JreManagerEndToEndTests : IDisposable
         Directory.CreateDirectory(binDir);
         var javaPath = Path.Combine(binDir, LoyaPaths.JavaExecutableName);
         await File.WriteAllTextAsync(javaPath, "#!/bin/sh\necho 'openjdk version \"17\"' >&2\n");
-        File.SetUnixFileMode(javaPath,
-            File.GetUnixFileMode(javaPath) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+        // Unix 文件模式 API 在 Windows 抛 PlatformNotSupportedException（CI 实锤），
+        // 且 Windows 不需要执行位——按平台跳过
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(javaPath,
+                File.GetUnixFileMode(javaPath) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
 
         using var dm = CreateManager();
         var manager = new JreManager(dm);
@@ -118,18 +126,23 @@ public sealed class JreManagerEndToEndTests : IDisposable
         _server.Handler = _ => new MockResponse(200, "application/gzip", tgz);
 
         using var dm = CreateManager();
+        // 注入版本探针：假 java 是 shell 脚本，Windows 上无法执行。
+        // 探针注入后，"下载→安全解压→查找可执行文件（Windows 为 java.exe）→
+        // 核对主版本→搬正 release 文件"的完整链路在三平台都可真实验证。
         var manager = new JreManager(dm,
             (_, _) => Task.FromResult(new List<(string, string)> { (_server.Url("jre17.tar.gz"), ".tar.gz") }),
-            NoSystemJava);
+            NoSystemJava,
+            (_, _) => Task.FromResult(17));
 
         var javaPath = await manager.EnsureJavaAsync(17);
 
         Assert.True(File.Exists(javaPath));
         Assert.Contains("java17", javaPath.Replace('\\', '/'));
 
-        // 解压出的 java 真实可执行且报告 17
-        var major = await JreManager.ProbeJavaMajorAsync(javaPath);
-        Assert.Equal(17, major);
+        // Unix：解压出的 java 真实可执行且报告 17。
+        // Windows 上假 java 非 PE 映像、必然无法执行，真实探测断言仅限 Unix。
+        if (!OperatingSystem.IsWindows())
+            Assert.Equal(17, await JreManager.ProbeJavaMajorAsync(javaPath));
 
         // release 文件被正确搬入，ListManagedRuntimes 能读到详细版本
         var runtimes = manager.ListManagedRuntimes();
@@ -147,7 +160,8 @@ public sealed class JreManagerEndToEndTests : IDisposable
         using var dm = CreateManager();
         var manager = new JreManager(dm,
             (_, _) => Task.FromResult(new List<(string, string)> { (_server.Url("jre17.tar.gz"), ".tar.gz") }),
-            NoSystemJava);
+            NoSystemJava,
+            (_, _) => Task.FromResult(21)); // 探针报告 21：请求 17，实际 21
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => manager.EnsureJavaAsync(17));
 
@@ -224,7 +238,8 @@ public sealed class JreManagerEndToEndTests : IDisposable
                 (_server.Url("bad.tar.gz"), ".tar.gz"),
                 (_server.Url("good.tar.gz"), ".tar.gz"),
             }),
-            NoSystemJava);
+            NoSystemJava,
+            (_, _) => Task.FromResult(17)); // 注入探针：链路在三平台可验证（Windows 假 java 无法真实执行）
 
         var javaPath = await manager.EnsureJavaAsync(17);
 
@@ -239,9 +254,17 @@ public sealed class JreManagerEndToEndTests : IDisposable
     {
         var script = Path.Combine(_tempDir, "java17.sh");
         await File.WriteAllTextAsync(script, "#!/bin/sh\necho 'openjdk version \"17.0.2\" 2025-01-01' >&2\n");
-        File.SetUnixFileMode(script, File.GetUnixFileMode(script) | UnixFileMode.UserExecute);
-
-        Assert.Equal(17, await JreManager.ProbeJavaMajorAsync(script));
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(script, File.GetUnixFileMode(script) | UnixFileMode.UserExecute);
+            Assert.Equal(17, await JreManager.ProbeJavaMajorAsync(script));
+        }
+        else
+        {
+            // Windows 上 .sh 不是可执行映像（CreateProcess 直接失败）：
+            // 探测必须安全返回 0 而不是把异常抛给调用方
+            Assert.Equal(0, await JreManager.ProbeJavaMajorAsync(script));
+        }
     }
 
     [Fact]
@@ -249,7 +272,9 @@ public sealed class JreManagerEndToEndTests : IDisposable
     {
         var script = Path.Combine(_tempDir, "java-bad.sh");
         await File.WriteAllTextAsync(script, "#!/bin/sh\nexit 1\n");
-        File.SetUnixFileMode(script, File.GetUnixFileMode(script) | UnixFileMode.UserExecute);
+        // Unix 文件模式 API 在 Windows 抛 PlatformNotSupportedException（CI 实锤）
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(script, File.GetUnixFileMode(script) | UnixFileMode.UserExecute);
 
         Assert.Equal(0, await JreManager.ProbeJavaMajorAsync(script));
     }

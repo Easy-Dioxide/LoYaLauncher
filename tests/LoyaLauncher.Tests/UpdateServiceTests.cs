@@ -582,21 +582,31 @@ public sealed class UpdateServiceTests : IAsyncLifetime
             new() { Name = "LoyaLauncher-win-x64.zip", BrowserDownloadUrl = "https://x/win.zip", Size = 2 },
             new() { Name = "LoyaLauncher-linux-x64.zip", BrowserDownloadUrl = "https://x/linux.zip", Size = 3 },
         };
+        // 补充当前平台资产：linux/win 已在列表中；mac 需要显式加入才能走到精确匹配分支
+        // （原先断言写死 "linux-x64"，在 macOS 上精确匹配不存在、回退到 win 包即失败）
+        if (!assets.Any(a => string.Equals(a.Name, PlatformZipName, StringComparison.OrdinalIgnoreCase)))
+            assets.Add(new() { Name = PlatformZipName, BrowserDownloadUrl = "https://x/current.zip", Size = 4 });
 
         var picked = UpdateService.PickAssetForPlatform(assets);
 
-        // 测试机为 linux-x64：应精确匹配而不是回退到任意 zip
+        // 当前平台 rid 精确匹配，而不是回退到任意 zip
         Assert.NotNull(picked);
-        Assert.Contains(LoyaPaths.PlatformId == "windows" ? "win-x64" : "linux-x64", picked.Name);
+        Assert.Equal(PlatformZipName, picked.Name);
 
-        // 无精确匹配时回退到任意可安装 zip，且排除源码包
+        // 无精确匹配时回退到任意可安装 zip，且排除源码包。
+        // 构造不含当前平台资产的列表：若本机就是 mac arm64，
+        // 用 linux 包充当"其他平台"（否则 osx-arm64 会精确匹配，走不到回退分支）。
+        var otherPlatformZip = PlatformZipName == "LoyaLauncher-osx-arm64.zip"
+            ? "LoyaLauncher-linux-x64.zip"
+            : "LoyaLauncher-osx-arm64.zip";
         var fallback = UpdateService.PickAssetForPlatform(new List<LoyaLauncher.Pack.GitHubAsset>
         {
             new() { Name = "LoyaLauncher-src-0.7.1.zip", BrowserDownloadUrl = "https://x/src.zip", Size = 1 },
-            new() { Name = "LoyaLauncher-osx-arm64.zip", BrowserDownloadUrl = "https://x/mac.zip", Size = 2 },
+            new() { Name = otherPlatformZip, BrowserDownloadUrl = "https://x/mac.zip", Size = 2 },
         });
         Assert.NotNull(fallback);
         Assert.DoesNotContain("-src-", fallback.Name);
+        Assert.Equal(otherPlatformZip, fallback.Name);
 
         Assert.Null(UpdateService.PickAssetForPlatform(new List<LoyaLauncher.Pack.GitHubAsset>()));
     }

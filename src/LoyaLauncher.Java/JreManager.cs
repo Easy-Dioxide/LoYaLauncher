@@ -16,15 +16,18 @@ public sealed class JreManager
     private readonly Downloader.DownloadManager _downloader;
     private readonly Func<int, CancellationToken, Task<List<(string Url, string Ext)>>>? _candidateFactory;
     private readonly Func<CancellationToken, Task<(string? Path, int Major)>>? _systemJavaProbe;
+    private readonly Func<string, CancellationToken, Task<int>>? _javaProbe;
 
     public JreManager(
         Downloader.DownloadManager downloader,
         Func<int, CancellationToken, Task<List<(string Url, string Ext)>>>? candidateFactory = null,
-        Func<CancellationToken, Task<(string? Path, int Major)>>? systemJavaProbe = null)
+        Func<CancellationToken, Task<(string? Path, int Major)>>? systemJavaProbe = null,
+        Func<string, CancellationToken, Task<int>>? javaProbe = null)
     {
         _downloader = downloader;
         _candidateFactory = candidateFactory;
         _systemJavaProbe = systemJavaProbe;
+        _javaProbe = javaProbe;
     }
 
     /// <summary>已托管的 JRE 可执行文件路径（不存在返回 null）</summary>
@@ -169,7 +172,9 @@ public sealed class JreManager
                 // 清单 §65：解压后必须实际运行 java -version 验证可用性，
                 // 并核对主版本——下载到错误架构/损坏包时文件可能"存在但跑不起来"，
                 // 只在启动时才暴露会更难排查。验证失败按候选失败继续尝试下一源。
-                var detected = await ProbeJavaMajorAsync(javaPath, ct);
+                // 探针可注入（与 systemJavaProbe 同模式）：测试在无真实 JRE 可执行的
+                // 平台上（如 Windows 上的假 java 脚本）也能验证完整链路；默认走真实探测。
+                var detected = await (_javaProbe?.Invoke(javaPath, ct) ?? ProbeJavaMajorAsync(javaPath, ct));
                 if (detected == 0)
                     throw new InvalidOperationException("JRE 校验失败: java -version 无法执行（架构不匹配或文件损坏）");
                 if (detected != majorVersion)
