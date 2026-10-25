@@ -28,27 +28,39 @@ public partial class MainWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        ApplyReduceMotion();
         ApplyReveal();
         StartAmbient();
+    }
+
+    /// <summary>
+    /// 减少动效（清单 §9 P1）：跳过入场补间、禁用页面过渡与背景漂移。
+    /// 配置在每次打开窗口时读取；Motion 全局开关由 App 启动与设置页维护。
+    /// </summary>
+    private void ApplyReduceMotion()
+    {
+        if (!Core.ConfigStore.Instance.Config.ReduceMotion) return;
+
+        // 入场：先摘除 Transitions 再落到终态，零延时呈现
+        RootGrid.Transitions = null;
+        RootGrid.Opacity = 1;
+        RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
+        _revealed = true;
+
+        // 页面切换：禁用过渡动画
+        PageHost.PageTransition = null;
     }
 
     /// <summary>
     /// 激活兜底说明：见构造函数中的 Activated 订阅。
     /// </summary>
     /// <summary>入场收尾：淡入到 1、缩放归位（Transitions 负责补间，幂等）</summary>
-    /// <remarks>
-    /// 时机纪律（Avalonia 12 实测）：Opened/Activated 当口设终态，过渡静默不播放
-    /// （直接跳变）；必须 Post 到布局帧之后（DispatcherPriority.Loaded）才恢复插值。
-    /// </remarks>
     private void ApplyReveal()
     {
         if (_revealed) return;
         _revealed = true;
-        Dispatcher.UIThread.Post(() =>
-        {
-            RootGrid.Opacity = 1;
-            RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
-        }, DispatcherPriority.Loaded);
+        RootGrid.Opacity = 1;
+        RootGrid.RenderTransform = new Avalonia.Media.ScaleTransform(1, 1);
     }
 
     /// <summary>
@@ -58,6 +70,7 @@ public partial class MainWindow : Window
     private void StartAmbient()
     {
         if (_ambient.Count > 0) return; // 幂等
+        if (!LoyaMotion.Enabled) return; // 减少动效：不启动背景漂移
         // 主光斑：18s 周期，幅度较大，相位 0
         _ambient.Add(LoyaMotion.StartDrift(
             GlowA, amplitudeX: 26, amplitudeY: 18,

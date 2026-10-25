@@ -35,6 +35,16 @@ class Program
 
         try
         {
+            // ===== 启动早期：更新回滚检查（清单 §8）=====
+            // 若上次启动应用了自动更新但从未成功确认（主窗口未打开即崩溃），
+            // 说明新版本起不来——先从备份恢复旧版本，再继续启动。
+            StartupLog.Stage("pending-update:rollback-check");
+            if (UpdateService.RollbackIfUnconfirmed())
+            {
+                StartupLog.Stage("pending-update:rolled-back");
+                StartupLog.Error("pending-update: 上次更新的版本启动失败，已回滚到旧版本", null);
+            }
+
             // 启动早期应用上次下载的更新（此时旧进程已退出，文件无占用）。
             // 若发生了替换则直接重启，加载新版本。
             StartupLog.Stage("pending-update:checking");

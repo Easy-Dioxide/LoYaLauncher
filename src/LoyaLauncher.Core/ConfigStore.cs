@@ -24,6 +24,12 @@ public sealed class ConfigStore
         _filePath = Path.Combine(LoyaPaths.Config, "config.json");
     }
 
+    /// <summary>测试/多配置场景：在指定目录构造独立实例（不触碰全局单例）</summary>
+    public ConfigStore(string configDirectory)
+    {
+        _filePath = Path.Combine(configDirectory, "config.json");
+    }
+
     /// <summary>当前配置（首次访问时从磁盘加载，损坏则回退默认值）</summary>
     public AppConfig Config => _config ??= LoadFromDisk();
 

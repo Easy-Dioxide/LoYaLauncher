@@ -110,9 +110,41 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # 清单 §8：发布产物必须带 SHA-256 清单，客户端（UpdateService.PickChecksumAsset）
+      # 按"同名 .sha256 资产 → SHA256SUMS 资产 → Release Notes"的顺序查找期望值。
+      # 源码包（-src-）不参与自动更新校验。
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          cd artifacts
+          : > SHA256SUMS
+          for f in LoyaLauncher-*.zip; do
+            [ -e "$f" ] || continue
+            case "$f" in *-src-*) continue ;; esac
+            h=$(sha256sum "$f" | awk '{print $1}')
+            printf '%s  %s\n' "$h" "$f" >> SHA256SUMS
+            printf '%s  %s\n' "$h" "$f" > "$f.sha256"
+          done
+          cat SHA256SUMS
+
+      # Release Notes 前段嵌入校验表：手动下载的用户也能核对，
+      # UpdateService.ExtractShaFromNotes 也会读取这里的哈希
+      - name: Compose release notes prefix
+        shell: bash
+        run: |
+          {
+            echo "## SHA-256 校验"
+            echo ""
+            echo '```'
+            cat artifacts/SHA256SUMS
+            echo '```'
+            echo ""
+          } > release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: |
             artifacts/*
             LoyaLauncher-src-${{ env.VERSION }}.zip

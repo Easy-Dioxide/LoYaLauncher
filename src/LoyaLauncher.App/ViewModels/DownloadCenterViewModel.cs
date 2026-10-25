@@ -26,6 +26,23 @@ public sealed partial class DownloadTaskItem : ObservableObject
     [ObservableProperty]
     private string _speedText = "";
 
+    /// <summary>下载源友好名称（BMCLAPI / Mojang 官方 / Modrinth …）</summary>
+    [ObservableProperty]
+    private string _mirrorText = "";
+
+    /// <summary>已发生的重试次数（0 不展示）</summary>
+    [ObservableProperty]
+    private int _retryCount;
+
+    /// <summary>是否有重试（控制「重试 N 次」角标展示）</summary>
+    public bool HasRetries => RetryCount > 0;
+
+    partial void OnRetryCountChanged(int value) => OnPropertyChanged(nameof(HasRetries));
+
+    /// <summary>剩余时间估算（如 "约 1 分 20 秒"；无法估算时为空）</summary>
+    [ObservableProperty]
+    private string _etaText = "";
+
     [ObservableProperty]
     private bool _isCompleted;
 }
@@ -224,7 +241,13 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedVersionTimeLabel));
         OnPropertyChanged(nameof(SelectedVersionJavaMajor));
         OnPropertyChanged(nameof(IsSelectedVersionInstalled));
+        OnPropertyChanged(nameof(CanInstallVersion));
     }
+
+    partial void OnIsInstallingChanged(bool value) => OnPropertyChanged(nameof(CanInstallVersion));
+
+    /// <summary>是否可安装选中版本（防重复点击：安装中或未选中时禁用按钮）</summary>
+    public bool CanInstallVersion => SelectedVersion is not null && !IsInstalling;
 
     // ======================= Mod =======================
 
@@ -247,6 +270,10 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _modsStatusText = "";
+
+    /// <summary>Mod 安装进行中（防重复点击：按钮禁用 + 命令守卫）</summary>
+    [ObservableProperty]
+    private bool _isInstallingMod;
 
     /// <summary>是否存在可用实例（无实例时禁用 Mod 安装）</summary>
     public bool HasInstances => Instances.Count > 0;
@@ -407,11 +434,13 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
     [RelayCommand]
     private async Task InstallModAsync(ModrinthProject project)
     {
+        if (IsInstallingMod) return; // 防重复点击
         if (SelectedInstance is null)
         {
             ModsStatusText = Lang("Downloads.NoInstance");
             return;
         }
+        IsInstallingMod = true;
         try
         {
             var versions = await _modrinth.GetVersionsAsync(
@@ -429,6 +458,10 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
         catch (Exception ex)
         {
             ModsStatusText = $"{Lang("Downloads.ModInstallFailed")}: {ex.Message}";
+        }
+        finally
+        {
+            IsInstallingMod = false;
         }
     }
 
@@ -448,6 +481,7 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
             if (e.Group == "verify")
             {
                 item.StatusText = Lang("Downloads.Verifying");
+                if (!string.IsNullOrEmpty(e.Mirror)) item.MirrorText = e.Mirror;
                 return;
             }
 
@@ -461,6 +495,9 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
                 item.StatusText = FormatBytes(e.ReceivedBytes);
             }
             item.SpeedText = FormatSpeed(e.BytesPerSecond);
+            item.MirrorText = e.Mirror ?? item.MirrorText;
+            item.RetryCount = e.RetryCount;
+            item.EtaText = FormatEta(e.TotalBytes - e.ReceivedBytes, e.BytesPerSecond);
 
             _active[e.TaskId] = item;
             UpdateTotals();
@@ -476,6 +513,8 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
                 item.IsCompleted = e.Success;
                 item.Percent = 100;
                 item.SpeedText = "";
+                item.EtaText = "";
+                if (!string.IsNullOrEmpty(e.Mirror)) item.MirrorText = e.Mirror;
                 item.StatusText = e.Success
                     ? Lang("Downloads.TaskDone")
                     : $"{Lang("Downloads.TaskFailed")}: {e.Error}";
@@ -522,5 +561,19 @@ public sealed partial class DownloadCenterViewModel : ViewModelBase
     {
         if (bytesPerSecond <= 0) return "";
         return $"{FormatBytes((long)bytesPerSecond)}/s";
+    }
+
+    /// <summary>剩余时间估算（清单 §9 P1）：剩余字节与瞬时速度均有效时给出约值</summary>
+    private static string FormatEta(long remainingBytes, double bytesPerSecond)
+    {
+        if (remainingBytes <= 0 || bytesPerSecond <= 0) return "";
+        var seconds = remainingBytes / bytesPerSecond;
+        if (seconds < 1) return Lang("Downloads.EtaSoon");
+        if (seconds < 60) return string.Format(Lang("Downloads.EtaSeconds"), (int)seconds);
+        var minutes = (int)(seconds / 60);
+        var rest = (int)(seconds % 60);
+        return rest > 0
+            ? string.Format(Lang("Downloads.EtaMinutesSeconds"), minutes, rest)
+            : string.Format(Lang("Downloads.EtaMinutes"), minutes);
     }
 }

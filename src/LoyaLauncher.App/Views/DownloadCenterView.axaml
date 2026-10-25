@@ -197,7 +197,7 @@
                             <Button Classes="AccentButton" HorizontalAlignment="Stretch"
                                     Content="{DynamicResource Downloads.InstallVersion}"
                                     Command="{Binding InstallVersionCommand}"
-                                    IsEnabled="{Binding SelectedVersion, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    IsEnabled="{Binding CanInstallVersion}"/>
                             <Button Classes="GhostButton" HorizontalAlignment="Stretch" Margin="0,8,0,0"
                                     Content="{DynamicResource Downloads.CancelInstall}"
                                     Command="{Binding CancelInstallCommand}"
@@ -233,7 +233,8 @@
                               ItemsSource="{Binding Loaders}" SelectedItem="{Binding SelectedLoader}"/>
                     <Button Grid.Column="3" Classes="AccentButton" Margin="10,0,0,0" Padding="18,10"
                             Content="{DynamicResource Downloads.Search}"
-                            Command="{Binding SearchModsCommand}"/>
+                            Command="{Binding SearchModsCommand}"
+                            IsEnabled="{Binding !IsSearching}"/>
                 </Grid>
 
                 <Border Grid.Row="1" Classes="GlassCard" Padding="6">
@@ -266,7 +267,8 @@
                                                     VerticalAlignment="Center"
                                                     Content="{DynamicResource Downloads.InstallMod}"
                                                     Command="{Binding $parent[UserControl].DataContext.InstallModCommand}"
-                                                    CommandParameter="{Binding}"/>
+                                                    CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding !$parent[UserControl].DataContext.IsInstallingMod}"/>
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>
@@ -305,15 +307,36 @@
                                               Data="{StaticResource IconDownload}"/>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="12,0">
-                                        <TextBlock Text="{Binding Group}" FontSize="13"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Group}" FontSize="13"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <!-- 源名称角标（清单 §9：任务展示所用镜像） -->
+                                            <Border Background="#14FFFFFF" CornerRadius="5" Padding="6,1"
+                                                    Margin="8,0,0,0" VerticalAlignment="Center"
+                                                    IsVisible="{Binding MirrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                <TextBlock Text="{Binding MirrorText}" FontSize="10"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            </Border>
+                                            <!-- 重试角标 -->
+                                            <Border Background="#1FFBBF24" CornerRadius="5" Padding="6,1"
+                                                    Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    IsVisible="{Binding HasRetries}">
+                                                <TextBlock Text="{Binding RetryCount, StringFormat='重试 {0} 次'}"
+                                                           FontSize="10" Foreground="{StaticResource WarningBrush}"/>
+                                            </Border>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding StatusText}" FontSize="10"
                                                    Foreground="{StaticResource TextMutedBrush}"/>
                                         <ProgressBar Classes="GlassProgress" Margin="0,6,0,0"
                                                      Value="{Binding Percent}" Maximum="100"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center"
-                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center"
+                                                HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding SpeedText}" FontSize="11"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding EtaText}" FontSize="10" Margin="0,2,0,0"
+                                                   Foreground="{StaticResource TextMutedBrush}"/>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

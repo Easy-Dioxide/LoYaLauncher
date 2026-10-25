@@ -39,9 +39,14 @@ public sealed class DownloadTask
     public double BytesPerSecond { get; internal set; }
 }
 
-/// <summary>下载进度事件（经 EventBus 广播）</summary>
+/// <summary>
+/// 下载进度事件（经 EventBus 广播）。
+/// <paramref name="Mirror"/> 为源友好名称（见 <see cref="MirrorNames"/>），
+/// <paramref name="RetryCount"/> 为当前已发生的重试次数（0 表示一次成功）。
+/// </summary>
 public sealed record DownloadProgressEvent(
-    string TaskId, long ReceivedBytes, long TotalBytes, double BytesPerSecond, string Group);
+    string TaskId, long ReceivedBytes, long TotalBytes, double BytesPerSecond, string Group,
+    string? Mirror = null, int RetryCount = 0);
 
 /// <summary>下载完成事件</summary>
-public sealed record DownloadCompletedEvent(string TaskId, bool Success, string? Error, string Group);
+public sealed record DownloadCompletedEvent(string TaskId, bool Success, string? Error, string Group, string? Mirror = null);

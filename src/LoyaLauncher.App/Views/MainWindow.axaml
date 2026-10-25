@@ -151,7 +151,7 @@
                 </Border>
 
                 <!-- ============ 内容区（页面过渡动画） ============ -->
-                <TransitioningContentControl Grid.Column="1"
+                <TransitioningContentControl x:Name="PageHost" Grid.Column="1"
                                              Content="{Binding CurrentPage}"
                                              PageTransition="{StaticResource LoyaPageTransition}"
                                              HorizontalContentAlignment="Stretch"

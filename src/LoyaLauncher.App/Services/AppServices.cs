@@ -48,7 +48,8 @@ public static class AppServices
             sp.GetRequiredService<JreManager>()));
         services.AddSingleton<AccountManager>();
         services.AddSingleton<MicrosoftAuthService>();
-        services.AddSingleton<ModrinthClient>();
+        // Modrinth API 与文件下载统一走 DownloadManager（重试/日志/看门狗，清单 §5）
+        services.AddSingleton(sp => new ModrinthClient(sp.GetRequiredService<DownloadManager>()));
         services.AddSingleton(sp => new LoaderInstaller(
             sp.GetRequiredService<DownloadManager>(),
             sp.GetRequiredService<ConfigStore>()));
@@ -72,6 +73,7 @@ public static class AppServices
             sp.GetRequiredService<Core.EventBus>(),
             sp.GetRequiredService<ConfigStore>()));
         services.AddSingleton<JavaManagerViewModel>();
+        services.AddSingleton<NetworkDiagnosticsViewModel>();
 
         return services.BuildServiceProvider();
     }

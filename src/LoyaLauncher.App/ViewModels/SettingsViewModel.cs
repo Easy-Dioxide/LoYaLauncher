@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LoyaLauncher.Core;
 using LoyaLauncher.Pack;
+// 命名空间 LoyaLauncher.App.Motion 与类名 Motion 同名，直接用会解析为命名空间，须起别名
+using LoyaMotion = LoyaLauncher.App.Motion.Motion;
 
 namespace LoyaLauncher.App.ViewModels;
 
@@ -62,6 +64,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _experimentalEnabled;
 
+    /// <summary>减少动效（清单 §9 P1）：即时写入 Motion 全局开关，无需重启</summary>
+    [ObservableProperty]
+    private bool _reduceMotion;
+
+    partial void OnReduceMotionChanged(bool value)
+    {
+        LoyaMotion.Enabled = !value;
+    }
+
     [ObservableProperty]
     private string _statusText = "";
 
@@ -97,21 +108,34 @@ public sealed partial class SettingsViewModel : ViewModelBase
         try
         {
             var info = await _updates.CheckAsync();
-            if (info.Error is not null)
+            switch (info.Status)
             {
-                UpdateStatusText = info.Error;
-                HasUpdate = false;
-            }
-            else if (info.HasUpdate)
-            {
-                _pendingUpdate = info;
-                HasUpdate = info.DownloadUrl is not null;
-                UpdateStatusText = string.Format(Lang("Settings.UpdateAvailable"), info.LatestVersion);
-            }
-            else
-            {
-                HasUpdate = false;
-                UpdateStatusText = Lang("Settings.UpToDate");
+                case UpdateStatus.UpToDate:
+                    HasUpdate = false;
+                    UpdateStatusText = Lang("Settings.UpToDate");
+                    break;
+                case UpdateStatus.UpdateAvailable:
+                    _pendingUpdate = info;
+                    HasUpdate = info.DownloadUrl is not null;
+                    UpdateStatusText = string.Format(Lang("Settings.UpdateAvailable"), info.LatestVersion);
+                    if (info.ExpectedSha256 is null)
+                        UpdateStatusText += "（未提供 SHA-256 校验）";
+                    break;
+                case UpdateStatus.AssetMissing:
+                    _pendingUpdate = null;
+                    HasUpdate = false;
+                    UpdateStatusText = string.Format(Lang("Settings.UpdateAssetMissing"), info.LatestVersion);
+                    break;
+                case UpdateStatus.RateLimited:
+                    _pendingUpdate = null;
+                    HasUpdate = false;
+                    UpdateStatusText = Lang("Settings.UpdateRateLimited");
+                    break;
+                default:
+                    _pendingUpdate = null;
+                    HasUpdate = false;
+                    UpdateStatusText = info.Error ?? Lang("Settings.UpdateFailed");
+                    break;
             }
         }
         catch (Exception ex)
@@ -135,9 +159,25 @@ public sealed partial class SettingsViewModel : ViewModelBase
         try
         {
             var progress = new Progress<double>(p => UpdateProgress = p);
-            await _updates.PrepareUpdateAsync(_pendingUpdate, progress);
-            UpdateStatusText = Lang("Settings.UpdateReady");
-            HasUpdate = false;
+            var result = await _updates.PrepareUpdateAsync(_pendingUpdate, progress);
+            switch (result.Status)
+            {
+                case UpdateStatus.Prepared:
+                    UpdateStatusText = Lang("Settings.UpdateReady");
+                    if (result.Warning is not null)
+                        UpdateStatusText += $"（{result.Warning}）";
+                    HasUpdate = false;
+                    break;
+                case UpdateStatus.VerifyFailed:
+                    UpdateStatusText = $"{Lang("Settings.UpdateVerifyFailed")}: {result.Error}";
+                    break;
+                case UpdateStatus.RateLimited:
+                    UpdateStatusText = Lang("Settings.UpdateRateLimited");
+                    break;
+                default:
+                    UpdateStatusText = $"{Lang("Settings.UpdateFailed")}: {result.Error}";
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -160,6 +200,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         JvmArguments = c.JvmArguments;
         MinimizeAfterLaunch = c.MinimizeAfterLaunch;
         ExperimentalEnabled = c.ExperimentalEnabled;
+        ReduceMotion = c.ReduceMotion;
     }
 
     /// <summary>保存设置</summary>
@@ -174,6 +215,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         c.JvmArguments = JvmArguments;
         c.MinimizeAfterLaunch = MinimizeAfterLaunch;
         c.ExperimentalEnabled = ExperimentalEnabled;
+        c.ReduceMotion = ReduceMotion;
+        LoyaMotion.Enabled = !c.ReduceMotion;
         _config.Save();
         StatusText = Lang("Settings.Saved");
     }
@@ -191,6 +234,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         JvmArguments = defaults.JvmArguments;
         MinimizeAfterLaunch = defaults.MinimizeAfterLaunch;
         ExperimentalEnabled = defaults.ExperimentalEnabled;
+        ReduceMotion = defaults.ReduceMotion;
         Save();
         StatusText = Lang("Settings.Reset");
     }

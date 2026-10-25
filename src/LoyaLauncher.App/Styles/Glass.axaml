@@ -83,6 +83,9 @@
         <!-- 放大镜（诊断）图标 -->
         <StreamGeometry x:Key="IconSearch">M10.8 3.8 A7 7 0 1 0 10.8 17.8 A7 7 0 1 0 10.8 3.8 Z M10.8 1.8 A9 9 0 1 1 10.8 19.8 A9 9 0 1 1 10.8 1.8 Z M15.6 15.6 L21 21</StreamGeometry>
 
+        <!-- 网络诊断：心跳脉冲线 -->
+        <StreamGeometry x:Key="IconPulse">M2.5 12 H7 L9.6 5.8 L14.4 18.2 L16.8 12 H21.5</StreamGeometry>
+
     </Styles.Resources>
 
     <Style Selector="TextBlock.hTitle">
@@ -162,10 +165,8 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <!-- 外层 Border：渐变底 + 柔光阴影；ClipToBounds 把涟漪/扫光裁剪进圆角。
-                     内层 Grid 挂 RippleHost：按压时从命中点注入扩散圆（见 Motion）；
-                     Background=Transparent 使其成为命中测试目标（null Background 的
-                     Panel 不参与命中，事件会被外层 Border 截走）。
-                     sheen 层：hover 时一道斜向高光掠过（宿主 PointerMoved 驱动）。 -->
+                     内层 Grid 挂 RippleHost：按压时从命中点注入扩散圆（见 Motion）。
+                     sheen 层：hover 时一道斜向高光掠过（PointerEntered 驱动）。 -->
                 <Border Background="{TemplateBinding Background}"
                         CornerRadius="{TemplateBinding CornerRadius}"
                         Padding="{TemplateBinding Padding}"
@@ -173,7 +174,7 @@
                     <Border.Effect>
                         <DropShadowEffect Color="#7C5CFF" BlurRadius="24" OffsetY="4" Opacity="0.45"/>
                     </Border.Effect>
-                    <Grid motion:Motion.RippleHost="True" Background="Transparent">
+                    <Grid motion:Motion.RippleHost="True">
                         <Border motion:Motion.Sheen="True" IsHitTestVisible="False" Opacity="0"
                                 CornerRadius="{TemplateBinding CornerRadius}">
                             <Border.Background>
@@ -227,11 +228,7 @@
                         CornerRadius="{TemplateBinding CornerRadius}"
                         Padding="{TemplateBinding Padding}"
                         ClipToBounds="True">
-                    <!-- Background=Transparent：让 Grid 成为命中测试目标。
-                         null Background 的 Panel 不参与命中测试，指针事件会被外层
-                         模板 Border 截走（Border 有 Background），宿主 Grid 收不到
-                         PointerMoved/Pressed，扫光与涟漪都会失效。 -->
-                    <Grid motion:Motion.RippleHost="True" Background="Transparent">
+                    <Grid motion:Motion.RippleHost="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Content="{TemplateBinding Content}"/>
                     </Grid>

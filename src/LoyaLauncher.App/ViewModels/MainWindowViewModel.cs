@@ -21,6 +21,7 @@ public enum LauncherPage
     Settings,
     Downloads,
     Java,
+    Diagnostics,
 }
 
 /// <summary>侧边导航项</summary>
@@ -103,6 +104,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             ("IconGear", (StreamGeometry)Application.Current!.Resources["IconGear"]!),
             ("IconDownload", (StreamGeometry)Application.Current!.Resources["IconDownload"]!),
             ("IconSearch", (StreamGeometry)Application.Current!.Resources["IconSearch"]!),
+            ("IconPulse", (StreamGeometry)Application.Current!.Resources["IconPulse"]!),
         };
 
         foreach (var (page, labelKey, iconKey) in new[]
@@ -114,6 +116,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             (LauncherPage.Accounts, "Nav.Accounts", "IconUser"),
             (LauncherPage.Downloads, "Nav.Downloads", "IconDownload"),
             (LauncherPage.Java, "Nav.Java", "IconSearch"),
+            (LauncherPage.Diagnostics, "Nav.Diagnostics", "IconPulse"),
             (LauncherPage.Settings, "Nav.Settings", "IconGear"),
         })
         {
@@ -142,6 +145,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
                 LauncherPage.Settings => _sp.GetRequiredService<SettingsViewModel>(),
                 LauncherPage.Downloads => _sp.GetRequiredService<DownloadCenterViewModel>(),
                 LauncherPage.Java => _sp.GetRequiredService<JavaManagerViewModel>(),
+                LauncherPage.Diagnostics => _sp.GetRequiredService<NetworkDiagnosticsViewModel>(),
                 _ => throw new ArgumentOutOfRangeException(nameof(page)),
             };
             _pages[page] = vm;

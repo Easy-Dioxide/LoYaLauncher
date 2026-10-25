@@ -9,7 +9,6 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
@@ -33,30 +32,28 @@ namespace LoyaLauncher.App.Motion;
 ///   <item><see cref="StartDrift"/>/<see cref="StartPulse"/>/<see cref="StartSpin"/>：
 ///         循环氛围动画（背景漂移 / 呼吸 / 光环旋转）</item>
 /// </list>
-/// 设计约束（Avalonia 12，均有运行时实测背书）：
-/// - <b>RenderTransform 没有注册动画器</b>：<c>Animation.RunAsync</c> 对
-///   <see cref="Visual.RenderTransformProperty"/> 直接抛
-///   「No animator registered for the property RenderTransform」；
-///   且动画目标必须是 <see cref="Visual"/>（不能是 Transform 实例，会 InvalidCast）。
-///   → 一次性 transform 动画一律走 <see cref="TransformOperationsTransition"/> 声明式过渡
-///   （实测插值平滑，CubicEaseOut 曲线标准）；
-/// - <b>挂载当口播放过渡会静默失效</b>：在 <see cref="Visual.AttachedToVisualTree"/>
-///   处理函数里当场给控件挂 <see cref="Control.Transitions"/> 并改属性，过渡<b>不报错但也不播放</b>
-///   （属性直接落终态，实测 op 首采样即 1.00）；推迟到布局后（DispatcherPriority.Loaded）
-///   再设值即恢复平滑插值。→ 一切入场播放必须经 <see cref="ScheduleReveal"/> 调度，
-///   绝不在 attach / Opened 事件里同步设终态；
-/// - 循环动画同样不允许 RunAsync → 用 DispatcherTimer 手动驱动（timer 直接写属性，
-///   天然逐帧平滑）；
+/// 设计约束（Avalonia 12）：
+/// - XAML 的 Animations 附加属性已移除 → 一次性动画一律用 <c>Animation.RunAsync</c>；
+/// - 循环动画不允许 RunAsync → 用 DispatcherTimer 手动驱动（见 SplashWindow 既有模式）；
 /// - 只动画 Opacity / RenderTransform（合成层属性），绝不触碰布局属性，保证 60fps；
-/// - 所有播放路径均有容错：失败时目标控件直接落到可见终态，绝不留下隐形内容；
+/// - 所有播放路径均有容错：动画失败时目标控件直接落到可见终态，绝不留下隐形内容；
 /// - Avalonia 12 的类型布局注意：TransformOperations 在 Avalonia.Media.Transformation；
 ///   Shape 在 Avalonia.Controls.Shapes；hover 事件为 PointerEntered/PointerExited。
 /// </summary>
 public static class Motion
 {
+    // ==================== 全局开关 ====================
+
+    /// <summary>
+    /// 动效总开关（清单 §9 P1「减少动效」）：false 时所有动画路径直接跳过，
+    /// 内容立即呈现可见终态。由 App 启动时按 <c>AppConfig.ReduceMotion</c> 初始化，
+    /// 设置页切换时即时生效。
+    /// </summary>
+    public static bool Enabled { get; set; } = true;
+
     // ==================== 时序参数（高雅丝滑的关键：缓动与节奏） ====================
 
-    /// <summary>交错入场：相邻一项的启动间隔</summary>
+    /// <summary>交错入场：相邻两项的启动间隔</summary>
     public static readonly TimeSpan StaggerInterval = TimeSpan.FromMilliseconds(45);
 
     /// <summary>交错入场：单项时长</summary>
@@ -70,9 +67,6 @@ public static class Motion
 
     /// <summary>扫光掠过时长</summary>
     private static readonly TimeSpan SheenDuration = TimeSpan.FromMilliseconds(560);
-
-    /// <summary>扫光节流：宿主内 PointerMoved 的最小重播间隔</summary>
-    private static readonly TimeSpan SheenThrottle = TimeSpan.FromMilliseconds(800);
 
     /// <summary>循环动画帧间隔（约 60fps）</summary>
     private static readonly TimeSpan Tick = TimeSpan.FromMilliseconds(16);
@@ -116,10 +110,6 @@ public static class Motion
     private static readonly StyledProperty<CancellationTokenSource?> SheenCtsProperty =
         AvaloniaProperty.Register<MotionHost, CancellationTokenSource?>("SheenCts");
 
-    /// <summary>宿主上次播放扫光的时间（节流，避免 PointerMoved 每帧重播）</summary>
-    private static readonly StyledProperty<DateTime> LastSheenAtProperty =
-        AvaloniaProperty.Register<MotionHost, DateTime>("LastSheenAt");
-
     // ==================== 静态构造：属性变更接线 ====================
 
     static Motion()
@@ -137,37 +127,9 @@ public static class Motion
     private static TransformOps Translate(double x, double y) =>
         TransformOps.Parse($"translate({N(x)}px, {N(y)}px)");
 
-    /// <summary>
-    /// 瞬移设置属性值：临时摘掉控件自身 Transitions，赋值后还原。
-    /// 用于动画起点（初始态）——必须无过渡生效，否则会先「滑向」起点再归位。
-    /// </summary>
-    private static void SetInstant(Control control, Action apply)
-    {
-        var saved = control.Transitions;
-        if (saved is { Count: > 0 })
-            control.Transitions = null;
-        apply();
-        if (saved is { Count: > 0 })
-            control.Transitions = saved;
-    }
-
-    /// <summary>给控件挂过渡（替换同属性的旧条目，避免两条过渡抢同一属性）。</summary>
-    private static void EnsureTransitions(Control control, params TransitionBase[] transitions)
-    {
-        var list = control.Transitions;
-        if (list is null)
-        {
-            var fresh = new Transitions();
-            fresh.AddRange(transitions);
-            control.Transitions = fresh;
-            return;
-        }
-        foreach (var t in transitions)
-            for (var i = list.Count - 1; i >= 0; i--)
-                if (list[i] is TransitionBase existing && existing.Property == t.Property)
-                    list.RemoveAt(i);
-        list.AddRange(transitions);
-    }
+    /// <summary>旋转变换（度）</summary>
+    private static TransformOps Rotate(double degrees) =>
+        TransformOps.Parse($"rotate({N(degrees)}deg)");
 
     // ==================== 交错入场 ====================
 
@@ -180,42 +142,30 @@ public static class Motion
         if (host.GetValue(RevealedProperty)) return;
 
         if (host.IsAttachedToVisualTree())
-            ScheduleReveal(host);
+            BeginReveal(host);
         else
         {
-            // 只订一次：附加即排播，播完置幂等标记
+            // 只订一次：附加即播，播完置幂等标记
             void Once(object? sender, VisualTreeAttachmentEventArgs args)
             {
                 host.AttachedToVisualTree -= Once;
-                ScheduleReveal(host);
+                BeginReveal(host);
             }
             host.AttachedToVisualTree += Once;
         }
     }
 
     /// <summary>
-    /// 把入场播放推迟到布局帧之后（<see cref="DispatcherPriority.Loaded"/>）。
-    /// 实测（animtest r2 vs r3 对照）：在 AttachedToVisualTree 当口挂 Transitions
-    /// 并设终态，过渡静默不播放；推迟一帧后 CubicEaseOut 插值恢复正常。
-    /// </summary>
-    private static void ScheduleReveal(Panel host)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            // 排队期间被卸载（快速切页）：无可播放，直接放弃
-            if (!host.IsAttachedToVisualTree()) return;
-            BeginReveal(host);
-        }, DispatcherPriority.Loaded);
-    }
-
-    /// <summary>
-    /// 编排交错入场：先把所有可见子元素压到「未揭示」初始态（透明 + 下移，
-    /// 瞬移生效不触发过渡），再按索引错峰触发归位过渡。
+    /// 编排交错入场：先把所有可见子元素压到「未揭示」初始态（透明 + 下移），
+    /// 再按索引错峰播放归位。初始态同步设置（无 transition），不会出现先闪一帧再消失。
     /// </summary>
     private static void BeginReveal(Panel host)
     {
         if (host.GetValue(RevealedProperty)) return;
         host.SetValue(RevealedProperty, true);
+
+        // 减少动效：不播放入场，内容保持自然可见态
+        if (!Enabled) return;
 
         var targets = host.Children
             .OfType<Control>()
@@ -229,13 +179,12 @@ public static class Motion
         host.SetValue(RevealCtsProperty, cts);
         var ct = cts.Token;
 
-        // 初始态：瞬移生效，不经过渡（否则会先「滑向」起点再归位，闪一帧）
+        // 初始态：立即生效，不经过渡
         foreach (var t in targets)
-            SetInstant(t, () =>
-            {
-                t.Opacity = 0;
-                t.RenderTransform = Translate(0, RevealOffsetY);
-            });
+        {
+            t.Opacity = 0;
+            t.RenderTransform = Translate(0, RevealOffsetY);
+        }
 
         for (var i = 0; i < targets.Count; i++)
         {
@@ -245,7 +194,7 @@ public static class Motion
         }
     }
 
-    /// <summary>单项归位：delay 后触发 opacity 0→1 + translateY →0 的过渡。</summary>
+    /// <summary>单项归位：delay 后播放 opacity 0→1 + translateY →0。</summary>
     /// <remarks>
     /// 线程纪律：本方法在 UI 线程被调用；await 不得带 ConfigureAwait(false)，
     /// 否则续延落到线程池后再访问控件即抛「线程不能访问对象」。
@@ -257,28 +206,42 @@ public static class Motion
             if (delay > TimeSpan.Zero)
                 await Task.Delay(delay, ct);   // 捕获 SynchronizationContext，续延回 UI 线程
 
-            // 过渡播放：opacity 与 translateY 同步缓动归位（CubicEaseOut）
-            EnsureTransitions(control,
-                new DoubleTransition
+            var anim = new Animation
+            {
+                Duration = RevealDuration,
+                Easing = new CubicEaseOut(),
+                Children =
                 {
-                    Property = Visual.OpacityProperty,
-                    Duration = RevealDuration,
-                    Easing = new CubicEaseOut(),
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 0d),
+                            new Setter(Visual.RenderTransformProperty, Translate(0, RevealOffsetY)),
+                        },
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 1d),
+                            new Setter(Visual.RenderTransformProperty, TransformOps.Identity),
+                        },
+                    },
                 },
-                new TransformOperationsTransition
-                {
-                    Property = Visual.RenderTransformProperty,
-                    Duration = RevealDuration,
-                    Easing = new CubicEaseOut(),
-                });
+            };
+
+            await anim.RunAsync(control, ct);
+
+            // 双保险：FillMode 不可依赖，显式落到终态
             control.Opacity = 1;
             control.RenderTransform = TransformOps.Identity;
         }
         catch (OperationCanceledException)
         {
-            // 切页取消：立即落到终态，绝不留隐形内容
-            control.Opacity = 1;
-            control.RenderTransform = TransformOps.Identity;
+            // 切页取消：内容已处于自然状态，无需处理
         }
         catch
         {
@@ -301,48 +264,17 @@ public static class Motion
     // ==================== 涟漪 ====================
 
     /// <summary>涟漪：宿主 Panel 上挂载，按压时从命中点注入扩散圆。</summary>
-    /// <remarks>
-    /// 同一个宿主 Grid 还负责驱动 hover 扫光：指针在宿主内移动时 PointerMoved
-    /// 冒泡到本 Grid，由此驱动同级的 sheen 层。
-    /// （Avalonia 12 的 PointerEntered/Exited 是 Direct 路由，只达命中测试目标，
-    /// 冒泡不到宿主 Grid；PointerPressed/PointerMoved 是 Bubble 路由，宿主必然收到。）
-    /// <b>命中测试前提</b>：宿主 Grid 必须设 Background="Transparent"——null Background
-    /// 的 Panel 不参与命中测试，指针事件的命中目标会是外层模板 Border（有 Background），
-    /// 事件从 Border 向上冒泡，宿主 Grid 作为其<b>子节点</b>永远收不到。
-    /// </remarks>
     private static void OnRippleHostChanged(Panel host, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.NewValue is not true) return;
-        // Button.OnPointerPressed 在左键按下时置 e.Handled=true，且类处理器先于
-        // 目标（宿主 Grid）执行（隧道阶段），普通订阅收不到本事件；
-        // handledEventsToo:true 保证宿主仍能收到按压并叠加涟漪。
-        host.RemoveHandler(InputElement.PointerPressedEvent, OnRipplePressed);
-        host.AddHandler(
-            InputElement.PointerPressedEvent,
-            OnRipplePressed,
-            RoutingStrategies.Bubble,
-            handledEventsToo: true);
-        host.PointerMoved -= OnHostMoved;
-        host.PointerMoved += OnHostMoved;
-    }
-
-    /// <summary>宿主内移动：驱动其下挂 Sheen 标记的子层播放扫光（节流 800ms）。</summary>
-    private static void OnHostMoved(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Panel host) return;
-        var now = DateTime.UtcNow;
-        if (now - host.GetValue(LastSheenAtProperty) < SheenThrottle) return;
-        host.SetValue(LastSheenAtProperty, now);
-        foreach (var child in host.Children)
-        {
-            if (child is Border b && b.GetValue(SheenProperty))
-                PlaySheen(b);
-        }
+        host.PointerPressed -= OnRipplePressed;
+        host.PointerPressed += OnRipplePressed;
     }
 
     private static void OnRipplePressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Panel host) return;
+        if (!Enabled) return; // 减少动效：无涟漪
         var point = e.GetCurrentPoint(host);
         if (!point.Properties.IsLeftButtonPressed) return;
 
@@ -353,7 +285,6 @@ public static class Motion
                 host.Bounds.Width * host.Bounds.Width + host.Bounds.Height * host.Bounds.Height) * 1.15;
             if (size <= 0) return;
 
-            // 初始态（scale 0.25 + 不透明）在入树前设好：此时无过渡生效
             var ripple = new Ellipse
             {
                 Width = size,
@@ -369,30 +300,37 @@ public static class Motion
             };
             host.Children.Add(ripple);
 
-            // 入树后挂过渡并改值 → scale 0.25→1 + opacity 1→0 平滑扩散淡出。
-            // 时机纪律（同 BeginReveal，实测）：新建节点入树当口设终态，过渡静默
-            // 不播放（直接跳终态 = 不可见）；必须 Post 到布局帧之后才恢复插值。
-            Dispatcher.UIThread.Post(() =>
+            var anim = new Animation
             {
-                EnsureTransitions(ripple,
-                    new DoubleTransition
+                Duration = RippleDuration,
+                Easing = new SineEaseOut(),
+                Children =
+                {
+                    new KeyFrame
                     {
-                        Property = Visual.OpacityProperty,
-                        Duration = RippleDuration,
-                        Easing = new SineEaseOut(),
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 1d),
+                            new Setter(Visual.RenderTransformProperty, TransformOps.Parse("scale(0.25)")),
+                        },
                     },
-                    new TransformOperationsTransition
+                    new KeyFrame
                     {
-                        Property = Visual.RenderTransformProperty,
-                        Duration = RippleDuration,
-                        Easing = new SineEaseOut(),
-                    });
-                ripple.RenderTransform = TransformOps.Parse("scale(1)");
-                ripple.Opacity = 0;
-            }, DispatcherPriority.Loaded);
-
-            // 播完移除，避免在宿主上堆积不可命中的视觉节点
-            _ = RemoveLaterAsync(host, ripple, RippleDuration);
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 0d),
+                            new Setter(Visual.RenderTransformProperty, TransformOps.Parse("scale(1)")),
+                        },
+                    },
+                },
+            };
+            _ = anim.RunAsync(ripple).ContinueWith(_ =>
+            {
+                // 回到 UI 线程移除，避免持有已卸载视觉树上的节点
+                Dispatcher.UIThread.Post(() => host.Children.Remove(ripple));
+            }, TaskScheduler.Default);
         }
         catch
         {
@@ -400,85 +338,56 @@ public static class Motion
         }
     }
 
-    /// <summary>延迟移除涟漪节点（UI 线程续延，不得 ConfigureAwait(false)）。</summary>
-    private static async Task RemoveLaterAsync(Panel host, Ellipse ripple, TimeSpan delay)
-    {
-        try
-        {
-            await Task.Delay(delay);
-            host.Children.Remove(ripple);
-        }
-        catch
-        {
-            // 宿主已卸载：无需移除
-        }
-    }
-
     // ==================== 扫光 ====================
 
-    /// <summary>
-    /// 扫光：宿主 Grid 进入时驱动挂此标记的子层（斜向渐变 Border）从左掠到右。
-    /// 本属性只作标记（子层不可命中，无法自收指针事件）；事件由宿主 Grid 的
-    /// <see cref="OnHostMoved"/> 转发。
-    /// </summary>
+    /// <summary>扫光：host 进入时一道斜向高光从左掠到右，离开即隐。</summary>
     private static void OnSheenChanged(Border host, AvaloniaPropertyChangedEventArgs e)
     {
-        // 仅作标记，无需接线
+        if (e.NewValue is not true) return;
+        host.PointerEntered -= OnSheenEnter;
+        host.PointerEntered += OnSheenEnter;
+        host.PointerExited -= OnSheenLeave;
+        host.PointerExited += OnSheenLeave;
     }
 
-    /// <summary>播放扫光：从宿主左侧外起扫，掠过整宽。</summary>
-    private static void PlaySheen(Border host)
+    private static void OnSheenEnter(object? sender, PointerEventArgs e)
     {
+        if (sender is not Border host) return;
+        if (!Enabled) return; // 减少动效：无扫光
         host.GetValue(SheenCtsProperty)?.Cancel();
         var cts = new CancellationTokenSource();
         host.SetValue(SheenCtsProperty, cts);
 
-        // 宽度未知时退化为固定偏移
+        // 从宿主左侧外起扫；宽度未知时退化为固定偏移
         var offset = host.Bounds.Width > 0 ? host.Bounds.Width : 120;
-
-        // 1. 摘掉过渡，瞬移到起点（宿主左侧外）并显示
-        host.Transitions = null;
         host.RenderTransform = Translate(-offset, 0);
         host.Opacity = 1;
 
-        // 2. 挂上过渡，设终点 → 平滑扫到右侧外
-        host.Transitions = new Transitions
+        var anim = new Animation
         {
-            new TransformOperationsTransition
+            Duration = SheenDuration,
+            Easing = new CubicEaseOut(),
+            Children =
             {
-                Property = Visual.RenderTransformProperty,
-                Duration = SheenDuration,
-                Easing = new CubicEaseOut(),
+                new KeyFrame
+                {
+                    Cue = new Cue(0),
+                    Setters = { new Setter(Visual.RenderTransformProperty, Translate(-offset, 0)) },
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1),
+                    Setters = { new Setter(Visual.RenderTransformProperty, Translate(offset, 0)) },
+                },
             },
         };
-        host.RenderTransform = Translate(offset, 0);
-
-        // 3. 播完自动收起：瞬移回起点（无过渡，避免反向回扫）
-        _ = HideSheenLaterAsync(host, cts.Token);
+        _ = anim.RunAsync(host, cts.Token);
     }
 
-    /// <summary>扫光播完延时收起（UI 线程续延；取消则让位给下一次播放）。</summary>
-    private static async Task HideSheenLaterAsync(Border host, CancellationToken ct)
+    private static void OnSheenLeave(object? sender, PointerEventArgs e)
     {
-        try
-        {
-            await Task.Delay(SheenDuration, ct);
-            HideSheen(host);
-        }
-        catch (OperationCanceledException)
-        {
-            // 已被新的播放取消：新播放自带起点归位
-        }
-        catch
-        {
-            // 宿主已卸载：无可补救
-        }
-    }
-
-    /// <summary>收起扫光：立即隐藏并瞬移复位到起点，等下次移动再扫。</summary>
-    private static void HideSheen(Border host)
-    {
-        host.Transitions = null;
+        if (sender is not Border host) return;
+        host.GetValue(SheenCtsProperty)?.Cancel();
         host.Opacity = 0;
         var offset = host.Bounds.Width > 0 ? host.Bounds.Width : 120;
         host.RenderTransform = Translate(-offset, 0);
@@ -511,7 +420,7 @@ public static class Motion
             var x = amplitudeX * Math.Sin(w + phase);
             var y = amplitudeY * Math.Sin(w * 0.8 + phase + Math.PI / 2);
             var o = mid + amp * Math.Sin(w * 0.6 + phase + Math.PI);
-            target.RenderTransform = new TranslateTransform(x, y);
+            target.RenderTransform = Translate(x, y);
             target.Opacity = o;
         };
         timer.Start();
@@ -541,7 +450,7 @@ public static class Motion
         {
             var t = (DateTime.UtcNow - start).TotalSeconds % period.TotalSeconds / period.TotalSeconds;
             var angle = (clockwise ? 360.0 : -360.0) * t;
-            target.RenderTransform = new RotateTransform(angle);
+            target.RenderTransform = Rotate(angle);
         };
         timer.Start();
         return timer;

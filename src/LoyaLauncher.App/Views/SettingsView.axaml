@@ -89,6 +89,11 @@
                     <CheckBox Classes="GlassCheck" Margin="0,0,0,10"
                               IsChecked="{Binding MinimizeAfterLaunch}"
                               Content="{DynamicResource Settings.MinimizeAfterLaunch}"/>
+                    <CheckBox Classes="GlassCheck" Margin="0,0,0,10"
+                              IsChecked="{Binding ReduceMotion}"
+                              Content="{DynamicResource Settings.ReduceMotion}"/>
+                    <TextBlock Text="{DynamicResource Settings.ReduceMotionHint}" Classes="hCaption"
+                               Margin="26,0,0,10" TextWrapping="Wrap"/>
                     <CheckBox Classes="GlassCheck"
                               IsChecked="{Binding ExperimentalEnabled}"
                               Content="{DynamicResource Settings.Experimental}"/>
@@ -138,6 +143,20 @@
                         <Button Grid.Column="1" Classes="GhostButton" Margin="10,0,0,0"
                                 Content="{DynamicResource Settings.OpenFolder}"
                                 Command="{Binding OpenDataDirectoryCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ 网络诊断 ============ -->
+            <Border Classes="GlassCard" Padding="22" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Settings.NetworkDiagnostics}" Classes="hSection" Margin="0,0,0,12"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Settings.NetworkDiagnosticsHint}"
+                                   Classes="hCaption" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                        <Button Grid.Column="1" Classes="GhostButton" Margin="10,0,0,0" Padding="18,8"
+                                Content="{DynamicResource Settings.NetworkDiagnostics}"
+                                Click="OnOpenDiagnostics"/>
                     </Grid>
                 </StackPanel>
             </Border>

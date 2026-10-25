@@ -14,10 +14,17 @@ namespace LoyaLauncher.Java;
 public sealed class JreManager
 {
     private readonly Downloader.DownloadManager _downloader;
+    private readonly Func<int, CancellationToken, Task<List<(string Url, string Ext)>>>? _candidateFactory;
+    private readonly Func<CancellationToken, Task<(string? Path, int Major)>>? _systemJavaProbe;
 
-    public JreManager(Downloader.DownloadManager downloader)
+    public JreManager(
+        Downloader.DownloadManager downloader,
+        Func<int, CancellationToken, Task<List<(string Url, string Ext)>>>? candidateFactory = null,
+        Func<CancellationToken, Task<(string? Path, int Major)>>? systemJavaProbe = null)
     {
         _downloader = downloader;
+        _candidateFactory = candidateFactory;
+        _systemJavaProbe = systemJavaProbe;
     }
 
     /// <summary>已托管的 JRE 可执行文件路径（不存在返回 null）</summary>
@@ -73,7 +80,9 @@ public sealed class JreManager
         if (managed is not null) return managed;
 
         // 2. 系统 Java 满足版本（含上限约束，见 IsAcceptable）
-        var (sysPath, sysMajor) = await DetectSystemJavaAsync(ct);
+        var (sysPath, sysMajor) = _systemJavaProbe is not null
+            ? await _systemJavaProbe(ct)
+            : await DetectSystemJavaAsync(ct);
         if (sysPath is not null && IsAcceptable(sysMajor, majorVersion))
             return sysPath;
 
@@ -95,7 +104,9 @@ public sealed class JreManager
         var targetDir = Path.Combine(LoyaPaths.JavaRuntimes, $"java{majorVersion}");
         Directory.CreateDirectory(targetDir);
 
-        var candidates = await BuildJreCandidatesAsync(majorVersion, ct);
+        var candidates = _candidateFactory is not null
+            ? await _candidateFactory(majorVersion, ct)
+            : await BuildJreCandidatesAsync(majorVersion, ct);
 
         var errors = new List<string>();
         for (var i = 0; i < candidates.Count; i++)
@@ -119,19 +130,21 @@ public sealed class JreManager
                 // 创建目标目录，必须显式创建，否则 Linux/macOS 的 tar.gz 解压必抛
                 // DirectoryNotFoundException
                 Directory.CreateDirectory(extractDir);
-                await Task.Run(async () =>
+                await Task.Run(() =>
                 {
+                    // 统一走 SafeArchive：逐条目校验目录穿越并跳过符号链接条目
+                    // （清单 §10：Java 解压必须防目录穿越）
                     if (ext == ".zip")
-                        ZipFile.ExtractToDirectory(archive, extractDir, overwriteFiles: true);
+                        SafeArchive.ExtractZipSafely(archive, extractDir);
                     else
                     {
                         // tgz.gz：先 gzip 解压再 tar 展开
-                        await using var inStream = File.OpenRead(archive);
-                        await using var gzStream = new System.IO.Compression.GZipStream(inStream, CompressionMode.Decompress);
+                        using var inStream = File.OpenRead(archive);
+                        using var gzStream = new GZipStream(inStream, CompressionMode.Decompress);
                         using var tarStream = new MemoryStream();
-                        await gzStream.CopyToAsync(tarStream, ct);
+                        gzStream.CopyTo(tarStream);
                         tarStream.Position = 0;
-                        System.Formats.Tar.TarFile.ExtractToDirectory(tarStream, extractDir, overwriteFiles: true);
+                        SafeArchive.ExtractTarSafely(tarStream, extractDir);
                     }
                 }, ct);
 
@@ -152,12 +165,51 @@ public sealed class JreManager
                     File.SetUnixFileMode(javaPath,
                         File.GetUnixFileMode(javaPath) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
                 }
+
+                // 清单 §65：解压后必须实际运行 java -version 验证可用性，
+                // 并核对主版本——下载到错误架构/损坏包时文件可能"存在但跑不起来"，
+                // 只在启动时才暴露会更难排查。验证失败按候选失败继续尝试下一源。
+                var detected = await ProbeJavaMajorAsync(javaPath, ct);
+                if (detected == 0)
+                    throw new InvalidOperationException("JRE 校验失败: java -version 无法执行（架构不匹配或文件损坏）");
+                if (detected != majorVersion)
+                    throw new InvalidOperationException(
+                        $"JRE 校验失败: java -version 报告主版本 {detected}，期望 {majorVersion}");
+
                 return javaPath;
             }
             catch (Exception ex) { errors.Add($"{host}: {ex.Message}"); }
         }
         throw new InvalidOperationException(
             $"Java {majorVersion} 下载失败（已尝试 {candidates.Count} 个源）: {string.Join("; ", errors)}");
+    }
+
+    /// <summary>
+    /// 运行 &lt;c&gt;java -version&lt;/c&gt; 并解析主版本号（清单 §65 下载后验证）。
+    /// 无法启动 / 非零退出 / 无法解析一律返回 0，由调用方按候选失败处理。
+    /// </summary>
+    public static async Task<int> ProbeJavaMajorAsync(string javaExecutable, CancellationToken ct = default)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(javaExecutable, "-version")
+            {
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null) return 0;
+            var output = await proc.StandardError.ReadToEndAsync(ct);
+            await proc.WaitForExitAsync(ct);
+            if (proc.ExitCode != 0) return 0;
+            var m = Regex.Match(output, @"version ""(\d+)");
+            return m.Success && int.TryParse(m.Groups[1].Value, out var major) ? major : 0;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     /// <summary>
@@ -173,6 +225,8 @@ public sealed class JreManager
 
         // 1. 清华大学 Adoptium 镜像（国内快）。JRE 优先（体积约为 JDK 一半），
         //    无 JRE 构建时（如 Java 16）自动退 JDK。
+        //    目录 HTML 解析失败（清单 §64：不得作为唯一来源）时记录原因并继续，
+        //    由下方 Adoptium 官方 API 兜底。
         foreach (var kind in new[] { "jre", "jdk" })
         {
             var listing = await _downloader.GetStringAsync(
@@ -181,6 +235,8 @@ public sealed class JreManager
             if (file is not null)
                 candidates.Add((
                     $"https://mirrors.tuna.tsinghua.edu.cn/Adoptium/{majorVersion}/{kind}/{arch}/{os}/{file}", ext));
+            else if (listing is null)
+                Debug.WriteLine($"[JreManager] 清华 Adoptium 目录不可读（java{majorVersion}/{kind}），改走官方 API");
         }
 
         // 2. Adoptium 官方 API（latest 别名，全球可达）

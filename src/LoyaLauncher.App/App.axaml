@@ -39,6 +39,9 @@
         <DataTemplate x:DataType="vm:JavaManagerViewModel">
             <views:JavaView />
         </DataTemplate>
+        <DataTemplate x:DataType="vm:NetworkDiagnosticsViewModel">
+            <views:NetworkDiagnosticsView />
+        </DataTemplate>
     </Application.DataTemplates>
 
     <!-- 全局语言资源：由 App.axaml.cs 在启动时注入 -->

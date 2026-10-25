@@ -13,6 +13,17 @@ public sealed class VersionManifest
 
     [JsonPropertyName("versions")]
     public List<ManifestVersion> Versions { get; set; } = [];
+
+    /// <summary>缓存写入时间（UTC）。运行时标注，不参与序列化。</summary>
+    [JsonIgnore]
+    public DateTime? CacheWrittenUtc { get; set; }
+
+    /// <summary>
+    /// 是否来自陈旧缓存（网络失败时的降级结果，清单 §3.2）。
+    /// UI 必须向用户标注缓存时间，避免误认为最新列表。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsStale { get; set; }
 }
 
 public sealed class LatestVersions

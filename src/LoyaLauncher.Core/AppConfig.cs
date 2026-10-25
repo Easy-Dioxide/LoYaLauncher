@@ -68,6 +68,12 @@ public sealed class AppConfig
 
     /// <summary>是否开启实验性功能（基岩版 Mac/Linux 等）</summary>
     public bool ExperimentalEnabled { get; set; }
+
+    /// <summary>
+    /// 减少动效（清单 §9 P1）：关闭页面过渡、交错入场、涟漪/扫光与背景漂移，
+    /// 适合低性能设备或晕动敏感用户。设置后即时生效（Motion 全局开关），无需重启。
+    /// </summary>
+    public bool ReduceMotion { get; set; }
 }
 
 /// <summary>窗口几何信息</summary>

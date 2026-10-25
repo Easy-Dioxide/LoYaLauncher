@@ -46,75 +46,185 @@ public sealed class JavaInstaller
 
     // ======================= 版本清单 =======================
 
-    /// <summary>获取版本清单（缓存 6 小时）</summary>
+    /// <summary>清单缓存有效期</summary>
+    private static readonly TimeSpan ManifestCacheTtl = TimeSpan.FromHours(6);
+
+    /// <summary>
+    /// 获取版本清单（缓存 6 小时）。
+    /// 缓存策略（清单 §3.2）：区分“缓存存在”与“缓存有效”——
+    /// 过期但可解析的缓存保留为降级候选；损坏缓存移入诊断目录后重新请求；
+    /// 全部源网络失败时返回陈旧缓存并打标 <see cref="VersionManifest.IsStale"/>。
+    /// </summary>
     public async Task<VersionManifest> GetManifestAsync(CancellationToken ct = default)
     {
         var cachePath = Path.Combine(LoyaPaths.Cache, "version_manifest_v2.json");
-        if (File.Exists(cachePath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(cachePath) < TimeSpan.FromHours(6))
+
+        VersionManifest? fresh = null;
+        VersionManifest? staleFallback = null;
+        if (File.Exists(cachePath))
         {
+            var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(cachePath);
             try
             {
                 var cached = JsonSerializer.Deserialize<VersionManifest>(await File.ReadAllTextAsync(cachePath, ct), JsonOpts);
-                if (cached is not null) return cached;
+                if (cached is { Versions.Count: > 0 })
+                {
+                    cached.CacheWrittenUtc = File.GetLastWriteTimeUtc(cachePath);
+                    if (age < ManifestCacheTtl)
+                        fresh = cached;
+                    else
+                        staleFallback = cached; // 过期但可用：网络失败时降级
+                }
+                else
+                {
+                    QuarantineCache(cachePath, "empty-versions");
+                }
             }
-            catch { /* 缓存损坏则重新下载 */ }
+            catch (Exception ex) when (ex is JsonException or IOException or OperationCanceledException)
+            {
+                if (ex is not OperationCanceledException)
+                    QuarantineCache(cachePath, ex is JsonException ? "corrupt-json" : "io-error");
+                else throw;
+            }
         }
+
+        if (fresh is not null) return fresh;
 
         Exception? lastError = null;
         foreach (var mirror in Chain())
         {
+            ct.ThrowIfCancellationRequested();
             try
             {
-                var result = await _downloader.DownloadFileAsync(mirror.VersionManifest, cachePath, group: "manifest", ct: ct);
+                var result = await _downloader.DownloadFileAsync(mirror.VersionManifest, cachePath, group: "manifest", expectJson: true, ct: ct);
                 if (result.Success)
-                    return JsonSerializer.Deserialize<VersionManifest>(await File.ReadAllTextAsync(cachePath, ct), JsonOpts)
-                        ?? throw new InvalidOperationException("版本清单解析为空");
+                {
+                    try
+                    {
+                        var parsed = JsonSerializer.Deserialize<VersionManifest>(await File.ReadAllTextAsync(cachePath, ct), JsonOpts);
+                        if (parsed is { Versions.Count: > 0 } && parsed.Latest is not null)
+                        {
+                            parsed.CacheWrittenUtc = DateTime.UtcNow;
+                            return parsed;
+                        }
+                        QuarantineCache(cachePath, parsed is null ? "null-json" : "missing-fields");
+                        lastError = new InvalidOperationException("版本清单缺少 latest/versions 必要字段");
+                    }
+                    catch (Exception ex) when (ex is JsonException or IOException or OperationCanceledException)
+                    {
+                        if (ex is OperationCanceledException) throw;
+                        QuarantineCache(cachePath, ex is JsonException ? "corrupt-json" : "io-error");
+                        lastError = ex;
+                    }
+                }
+                else if (!result.Canceled)
+                {
+                    lastError = new InvalidOperationException(result.Error ?? "下载失败");
+                }
             }
             catch (Exception ex) { lastError = ex; }
         }
+
+        if (staleFallback is not null)
+        {
+            staleFallback.IsStale = true;
+            return staleFallback;
+        }
         throw new InvalidOperationException($"无法获取版本清单: {lastError?.Message}");
+    }
+
+    /// <summary>将损坏/无效的缓存移入诊断目录（保留证据，避免被反复误用）</summary>
+    private static void QuarantineCache(string cachePath, string reason)
+    {
+        try
+        {
+            if (!File.Exists(cachePath)) return;
+            var dir = Path.Combine(LoyaPaths.Cache, "diagnostic");
+            Directory.CreateDirectory(dir);
+            var name = Path.GetFileName(cachePath);
+            var dest = Path.Combine(dir, $"{name}.{DateTime.UtcNow:yyyyMMddHHmmss}.{reason}.bad");
+            File.Move(cachePath, dest, overwrite: true);
+        }
+        catch { /* 移动失败不影响主流程 */ }
     }
 
     /// <summary>下载并解析版本 JSON（含继承链合并）</summary>
     public async Task<VersionJson> GetVersionJsonAsync(string versionId, CancellationToken ct = default)
     {
         var jsonPath = Path.Combine(LoyaPaths.Versions, versionId, $"{versionId}.json");
-        if (!File.Exists(jsonPath))
-        {
-            var downloaded = false;
-            foreach (var mirror in Chain())
-            {
-                var result = await _downloader.DownloadFileAsync(
-                    mirror.VersionJson(versionId), jsonPath, group: "version", ct: ct);
-                if (result.Success) { downloaded = true; break; }
-            }
-            if (!downloaded)
-                throw new InvalidOperationException($"无法下载版本 {versionId} 的 JSON");
-        }
-        var root = JsonSerializer.Deserialize<VersionJson>(await File.ReadAllTextAsync(jsonPath, ct), JsonOpts)
-            ?? throw new InvalidOperationException($"版本 {versionId} JSON 解析失败");
+        var root = await ReadOrDownloadVersionJsonAsync(versionId, jsonPath, ct);
 
         // 合并继承链（如快照版继承正式版）
         if (!string.IsNullOrEmpty(root.InheritsFrom))
         {
             var parentPath = Path.Combine(LoyaPaths.Versions, root.InheritsFrom, $"{root.InheritsFrom}.json");
-            if (!File.Exists(parentPath))
-            {
-                foreach (var mirror in Chain())
-                {
-                    var result = await _downloader.DownloadFileAsync(
-                        mirror.VersionJson(root.InheritsFrom), parentPath, group: "version", ct: ct);
-                    if (result.Success) break;
-                }
-            }
-            if (File.Exists(parentPath))
-            {
-                var parent = JsonSerializer.Deserialize<VersionJson>(await File.ReadAllTextAsync(parentPath, ct), JsonOpts);
-                if (parent is not null)
-                    root = MergeVersion(root, parent);
-            }
+            var parent = await ReadOrDownloadVersionJsonAsync(root.InheritsFrom, parentPath, ct);
+            root = MergeVersion(root, parent);
         }
         return root;
+    }
+
+    /// <summary>
+    /// 从缓存读取版本 JSON；缓存损坏时删除并重新下载。官方版本 JSON 的真实地址
+    /// 来自 version_manifest_v2.json 的每个版本 url（piston-meta 的 SHA-1 路径），
+    /// 不能把版本 ID 直接拼到官方 URL 中。
+    /// </summary>
+    private async Task<VersionJson> ReadOrDownloadVersionJsonAsync(string versionId, string jsonPath, CancellationToken ct)
+    {
+        if (File.Exists(jsonPath))
+        {
+            try
+            {
+                var cached = JsonSerializer.Deserialize<VersionJson>(await File.ReadAllTextAsync(jsonPath, ct), JsonOpts);
+                if (cached is not null) return cached;
+                QuarantineCache(jsonPath, "empty-json");
+            }
+            catch (JsonException) { QuarantineCache(jsonPath, "corrupt-json"); }
+            catch (IOException) { try { File.Delete(jsonPath); } catch { /* 下载阶段会报告实际错误 */ } }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
+        var candidates = new List<string>();
+        foreach (var mirror in Chain())
+        {
+            try { candidates.Add(mirror.VersionJson(versionId)); }
+            catch (InvalidOperationException) { /* 空的自定义源由后续源兜底 */ }
+        }
+
+        // 从官方清单读取准确 URL，作为通用回退；对 BMCLAPI 不可用的旧版本尤其重要。
+        try
+        {
+            var manifest = await GetManifestAsync(ct);
+            var officialUrl = manifest.Versions.FirstOrDefault(v => v.Id.Equals(versionId, StringComparison.Ordinal))?.Url;
+            if (!string.IsNullOrWhiteSpace(officialUrl)) candidates.Add(officialUrl);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* 保留已有镜像候选；下方会汇总下载失败 */ }
+
+        var errors = new List<string>();
+        foreach (var url in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            ct.ThrowIfCancellationRequested();
+            var result = await _downloader.DownloadFileAsync(url, jsonPath, group: "version", expectJson: true, ct: ct);
+            if (result.Success)
+            {
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<VersionJson>(await File.ReadAllTextAsync(jsonPath, ct), JsonOpts);
+                    if (parsed is not null) return parsed;
+                    errors.Add($"{new Uri(url).Host}: JSON 内容为空");
+                }
+                catch (Exception ex) when (ex is JsonException or IOException)
+                {
+                    errors.Add($"{new Uri(url).Host}: {ex.Message}");
+                }
+                try { File.Delete(jsonPath); } catch { }
+            }
+            else errors.Add($"{new Uri(url).Host}: {result.Error}");
+        }
+
+        throw new InvalidOperationException($"无法下载或解析版本 {versionId} 的 JSON。" +
+            (errors.Count == 0 ? "没有可用的下载源。" : "尝试结果：" + string.Join("；", errors.Take(4))));
     }
 
     /// <summary>合并子版本与父版本：子覆盖父，libraries 合并去重</summary>
@@ -153,7 +263,7 @@ public sealed class JavaInstaller
         if (json.Downloads?.Client is { } client)
         {
             await DownloadWithChainAsync(
-                [(clientJar, client.Sha1, "client", m => m.ClientJar(versionId, client.Sha1))], ct);
+                [(clientJar, client.Sha1, "client", m => m.ClientJar(versionId, client.Sha1), false)], ct);
         }
 
         // 2. libraries（过滤 Rules，区分普通库与 natives）
@@ -202,7 +312,7 @@ public sealed class JavaInstaller
 
         await DownloadWithChainAsync(
             artifacts.Select(a => (a.Path, a.Sha1, "libraries",
-                (Func<Downloader.MirrorUrlSet, string>)(m => m.Library(a.MavenPath)))), ct);
+                (Func<Downloader.MirrorUrlSet, string>)(m => m.Library(a.MavenPath)), false)), ct);
 
         // 3. 解压 natives
         progress?.Report(new(versionId, "解压本地库", "natives", 0.6));
@@ -223,7 +333,7 @@ public sealed class JavaInstaller
             // JSON 缺 url 时才回退到镜像约定路径
             await DownloadWithChainAsync(
                 [(indexPath, ai.Sha1, "assets-index",
-                    m => string.IsNullOrEmpty(ai.Url) ? m.AssetsIndex(assetIndexId) : ai.Url)], ct);
+                    m => string.IsNullOrEmpty(ai.Url) ? m.AssetsIndex(assetIndexId) : ai.Url, true)], ct);
         }
 
         var assetIndex = JsonSerializer.Deserialize<AssetIndex>(await File.ReadAllTextAsync(indexPath, ct), JsonOpts);
@@ -234,7 +344,8 @@ public sealed class JavaInstaller
                     Path: Path.Combine(LoyaPaths.Assets, "objects", o.Value.Hash[..2], o.Value.Hash),
                     Sha1: (string?)o.Value.Hash,
                     Group: "assets",
-                    UrlFor: (Func<Downloader.MirrorUrlSet, string>)(m => m.AssetObject(o.Value.Hash))))
+                    UrlFor: (Func<Downloader.MirrorUrlSet, string>)(m => m.AssetObject(o.Value.Hash)),
+                    ExpectJson: false))
                 .ToList();
             try
             {
@@ -271,7 +382,7 @@ public sealed class JavaInstaller
     /// 全部源都失败时抛出聚合错误。
     /// </summary>
     private async Task DownloadWithChainAsync(
-        IEnumerable<(string Path, string? Sha1, string Group, Func<Downloader.MirrorUrlSet, string> UrlFor)> targets,
+        IEnumerable<(string Path, string? Sha1, string Group, Func<Downloader.MirrorUrlSet, string> UrlFor, bool ExpectJson)> targets,
         CancellationToken ct)
     {
         var chain = Chain();
@@ -281,7 +392,7 @@ public sealed class JavaInstaller
         foreach (var mirror in chain)
         {
             if (pending.Count == 0) break;
-            var items = pending.Select(t => (t.UrlFor(mirror), t.Path, t.Sha1, t.Group)).ToArray();
+            var items = pending.Select(t => (t.UrlFor(mirror), t.Path, t.Sha1, t.Group, t.ExpectJson)).ToArray();
             var result = await _downloader.DownloadManyAsync(items, ct);
             if (result.Success)
             {
@@ -370,6 +481,8 @@ public sealed class JavaInstaller
         if (json.JavaVersion?.MajorVersion is > 0) return json.JavaVersion.MajorVersion;
         // 无声明时按版本号经验推断
         var id = json.Id;
+        // 新快照/预发布格式（25w14craftmine、25w30a 等）：对应 1.21.6+，按 Java 21 处理
+        if (System.Text.RegularExpressions.Regex.IsMatch(id, @"^\d{2}w")) return 21;
         var m = System.Text.RegularExpressions.Regex.Match(id, @"1\.(\d+)(?:\.(\d+))?");
         if (!m.Success) return 8; // rd-/a/b/c 等远古版本，无 javaVersion 声明时按 Java 8 处理
         var minor = int.Parse(m.Groups[1].Value);
@@ -381,7 +494,7 @@ public sealed class JavaInstaller
         return 21; // 1.20.5+ / 1.21+
     }
 
-    /// <summary>解压 natives jar（排除 META-INF 等非库文件）</summary>
+    /// <summary>解压 natives jar（排除 META-INF 等非库文件；条目路径经 SafePath 校验，防目录穿越）</summary>
     private static void ExtractNatives(string jarPath, string targetDir)
     {
         using var archive = System.IO.Compression.ZipFile.OpenRead(jarPath);
@@ -391,7 +504,10 @@ public sealed class JavaInstaller
             if (entry.FullName.StartsWith("META-INF/", StringComparison.OrdinalIgnoreCase)) continue;
             if (entry.FullName.StartsWith(".git", StringComparison.OrdinalIgnoreCase)) continue;
 
-            var dest = Path.Combine(targetDir, entry.FullName);
+            // 目录穿越防护（清单 §10）：跳过非法条目而非抛出，单个坏 jar 不中断整个安装
+            var dest = Core.SafePath.ResolveEntry(targetDir, entry.FullName);
+            if (dest is null) continue;
+
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
             using var entryStream = entry.Open();
             using var fileStream = File.Create(dest);

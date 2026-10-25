@@ -6,6 +6,8 @@ using LoyaLauncher.App.ViewModels;
 using LoyaLauncher.App.Views;
 using LoyaLauncher.Core;
 using Microsoft.Extensions.DependencyInjection;
+// 命名空间 LoyaLauncher.App.Motion 与类名 Motion 同名，直接用会解析为命名空间，须起别名
+using LoyaMotion = LoyaLauncher.App.Motion.Motion;
 
 namespace LoyaLauncher.App;
 
@@ -24,6 +26,8 @@ public partial class App : Application
         // 初始化数据目录与语言资源
         Core.LoyaPaths.EnsureDirectories();
         LangService.ApplyLanguage(ConfigStore.Instance.Config.Language);
+        // 减少动效开关（清单 §9 P1）：全局生效，设置页切换即时更新
+        LoyaMotion.Enabled = !ConfigStore.Instance.Config.ReduceMotion;
         StartupLog.Stage("app:lang-applied");
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -41,6 +45,10 @@ public partial class App : Application
             main.Opened += (_, _) =>
             {
                 StartupLog.Stage("app:main-window-opened");
+                // ===== 启动成功确认（清单 §8）=====
+                // 主窗口已显示：若上次启动应用了自动更新，说明新版本运行正常，
+                // 清理 applied 标记与备份；若从未走到这里，下次启动会触发回滚。
+                Pack.UpdateService.ConfirmStartup();
                 _ = splash.CloseWithFadeAsync();
             };
             desktop.MainWindow = main;
