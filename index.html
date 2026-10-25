@@ -14,19 +14,19 @@
    深空黑底 · 大留白 · 毛玻璃细描边 · 柔和阴影 · 长缓动
    ============================================================ */
 :root{
-  --bg:#000;
-  --bg-elev:#08080a;
-  --bg-soft:#0d0d10;
-  --glass:rgba(255,255,255,.045);
-  --glass-2:rgba(255,255,255,.07);
-  --hairline:rgba(255,255,255,.10);
-  --hairline-2:rgba(255,255,255,.16);
-  --text:#f5f5f7;          /* Apple 主白 */
-  --text-2:#a1a1a6;        /* Apple 次级灰 */
-  --text-3:#6e6e73;        /* Apple 三级灰 */
-  --accent:#5ee3a8;        /* 克制青绿（唯一强调） */
-  --accent-2:#37c2ff;      /* 极少量冷青，用于光晕 */
-  --accent-soft:rgba(94,227,168,.12);
+  --bg:#07080c;
+  --bg-elev:#0b0d13;
+  --bg-soft:#0e1119;
+  --glass:rgba(255,255,255,.04);
+  --glass-2:rgba(255,255,255,.065);
+  --hairline:rgba(255,255,255,.09);
+  --hairline-2:rgba(255,255,255,.17);
+  --text:#f5f5f7;
+  --text-2:#9a9aa3;
+  --text-3:#65656d;
+  --accent:#5ee3a8;        /* 青绿品牌色（唯一强调色） */
+  --accent-2:#7ef0c8;      /* 同色系浅青，仅用于渐变 */
+  --accent-soft:rgba(94,227,168,.10);
   --radius:20px;
   --radius-sm:13px;
   --radius-lg:28px;
@@ -40,7 +40,10 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;scroll-padding-top:80px;-webkit-text-size-adjust:100%}
 body{
-  background:var(--bg);
+  background:
+    radial-gradient(120% 80% at 50% -12%, rgba(94,227,168,.06), transparent 55%),
+    radial-gradient(90% 60% at 86% 8%, rgba(126,240,200,.035), transparent 60%),
+    var(--bg);
   color:var(--text);
   font-family:'Inter','PingFang SC','Noto Sans SC',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
   font-weight:400;line-height:1.6;
@@ -55,10 +58,10 @@ img,svg{display:block}
 
 /* ========== 背景：极淡双色光晕（缓慢呼吸） ========== */
 .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.aurora .glow{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;mix-blend-mode:screen}
-.aurora .g1{width:62vw;height:62vw;left:-12vw;top:-18vw;background:radial-gradient(circle,rgba(94,227,168,.28),transparent 68%);animation:drift1 26s var(--ease) infinite alternate}
-.aurora .g2{width:55vw;height:55vw;right:-10vw;top:8vw;background:radial-gradient(circle,rgba(55,194,255,.22),transparent 68%);animation:drift2 32s var(--ease) infinite alternate}
-.aurora .g3{width:48vw;height:48vw;left:20vw;bottom:-22vw;background:radial-gradient(circle,rgba(124,108,255,.16),transparent 70%);animation:drift3 30s var(--ease) infinite alternate}
+.aurora .glow{position:absolute;border-radius:50%;filter:blur(100px);opacity:.42;mix-blend-mode:screen}
+.aurora .g1{width:60vw;height:60vw;left:-14vw;top:-20vw;background:radial-gradient(circle,rgba(94,227,168,.20),transparent 70%);animation:drift1 26s var(--ease) infinite alternate}
+.aurora .g2{width:52vw;height:52vw;right:-12vw;top:6vw;background:radial-gradient(circle,rgba(126,240,200,.15),transparent 70%);animation:drift2 32s var(--ease) infinite alternate}
+.aurora .g3{width:46vw;height:46vw;left:24vw;bottom:-24vw;background:radial-gradient(circle,rgba(94,227,168,.11),transparent 72%);animation:drift3 30s var(--ease) infinite alternate}
 @keyframes drift1{to{transform:translate3d(6vw,4vh,0) scale(1.12)}}
 @keyframes drift2{to{transform:translate3d(-5vw,3vh,0) scale(1.08)}}
 @keyframes drift3{to{transform:translate3d(3vw,-4vh,0) scale(1.15)}}
@@ -86,8 +89,11 @@ img,svg{display:block}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:inherit;font-weight:500;
   border:none;cursor:pointer;border-radius:980px;white-space:nowrap;transition:transform .35s var(--ease),background .35s,box-shadow .35s,opacity .3s}
 .btn:active{transform:scale(.97)}
-.btn-primary{background:var(--accent);color:#04140d;padding:8px 18px;font-size:13.5px}
+.btn-primary{background:var(--accent);color:#04140d;padding:8px 18px;font-size:13.5px;overflow:hidden;position:relative}
 .btn-primary:hover{background:#74ecb8;box-shadow:0 6px 22px rgba(94,227,168,.35)}
+.btn-primary::after{content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);transition:left .7s var(--ease)}
+.btn-primary:hover::after{left:130%}
 .btn-lg{padding:13px 28px;font-size:16px}
 .btn-ghost{background:var(--glass);color:var(--text);border:1px solid var(--hairline);padding:13px 26px;font-size:15px}
 .btn-ghost:hover{background:var(--glass-2);border-color:var(--hairline-2)}
@@ -163,6 +169,10 @@ section{position:relative;z-index:1}
   -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .45s;pointer-events:none}
 .card:hover{transform:translateY(-6px);border-color:var(--hairline-2);background:var(--glass-2)}
 .card:hover::before{opacity:1}
+.card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;z-index:0;
+  background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),rgba(94,227,168,.13),transparent 62%);
+  mix-blend-mode:screen;transition:opacity .4s}
+.card:hover::after{opacity:1}
 .card .ico{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;
   background:var(--accent-soft);color:var(--accent);margin-bottom:20px;transition:transform .5s var(--ease)}
 .card:hover .ico{transform:scale(1.08) rotate(-4deg)}
@@ -297,6 +307,18 @@ footer{position:relative;z-index:1;border-top:1px solid var(--hairline);padding:
 .reveal{opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease-out),transform .9s var(--ease-out);will-change:transform,opacity}
 .reveal.in{opacity:1;transform:none}
 
+/* Hero 草方块旋转光环 */
+.halo{position:absolute;inset:-46px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(94,227,168,.55) 36deg,transparent 78deg,transparent 182deg,rgba(126,240,200,.42) 220deg,transparent 262deg);
+  -webkit-mask:radial-gradient(circle,transparent 57%,#000 60%);mask:radial-gradient(circle,transparent 57%,#000 60%);
+  animation:haloSpin 9s linear infinite;opacity:.9}
+@keyframes haloSpin{to{transform:rotate(360deg)}}
+
+/* 首屏入场（纯 CSS，无需 JS） */
+.hero-inner .hero-up{animation:heroUp 1.05s var(--ease-out) both;animation-delay:var(--d,0s)}
+@keyframes heroUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.hero-inner .hero-up{animation:none}}
+
 /* ========== 响应式 ========== */
 @media(max-width:900px){
   .features-grid{grid-template-columns:repeat(2,1fr)}
@@ -362,15 +384,16 @@ footer{position:relative;z-index:1;border-top:1px solid var(--hairline);padding:
 <!-- Hero -->
 <header class="hero" id="top">
   <div class="hero-inner" id="heroInner">
-    <div class="hero-badge reveal in"><span class="dot"></span> v0.7.0 现已发布 · 动效与质感升级</div>
-    <h1 class="reveal in">让启动，<br>回归<span class="em">纯粹</span>。</h1>
-    <p class="hero-sub reveal in">一个跨平台 Minecraft 启动器。离线即玩、全版本覆盖、自动 Java 管理——把复杂留给它，把时间还给你。</p>
-    <div class="hero-actions reveal in">
+    <div class="hero-badge hero-up" style="--d:0s"><span class="dot"></span> v0.7.0 现已发布 · 动效与质感升级</div>
+    <h1 class="hero-up" style="--d:.1s">让启动，<br>回归<span class="em">纯粹</span>。</h1>
+    <p class="hero-sub hero-up" style="--d:.2s">一个跨平台 Minecraft 启动器。离线即玩、全版本覆盖、自动 Java 管理——把复杂留给它，把时间还给你。</p>
+    <div class="hero-actions hero-up" style="--d:.3s">
       <a class="btn btn-primary btn-lg" href="#download">免费下载</a>
       <a class="btn btn-ghost btn-lg" href="https://github.com/Easy-Dioxide/LoyaLauncher" target="_blank" rel="noopener">在 GitHub 上查看</a>
     </div>
-    <div class="cube-stage reveal in">
+    <div class="cube-stage hero-up" style="--d:.42s">
       <div class="cube-scene">
+        <div class="halo"></div>
         <div class="cube" id="cube">
           <div class="face top"></div><div class="face bottom"></div>
           <div class="face front"></div><div class="face back"></div>
@@ -378,7 +401,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--hairline);padding:
         </div>
       </div>
     </div>
-    <div class="hero-hint reveal in">向下滚动<span class="chev"></span></div>
+    <div class="hero-hint hero-up" style="--d:.56s">向下滚动<span class="chev"></span></div>
   </div>
 </header>
 
@@ -737,6 +760,15 @@ footer{position:relative;z-index:1;border-top:1px solid var(--hairline);padding:
     t.addEventListener('click', function(){
       var on = t.classList.toggle('on');
       t.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  });
+
+  /* 卡片光斑跟随 */
+  document.querySelectorAll('.card').forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', ((e.clientX - r.left)/r.width*100) + '%');
+      card.style.setProperty('--my', ((e.clientY - r.top)/r.height*100) + '%');
     });
   });
 
